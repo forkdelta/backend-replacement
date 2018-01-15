@@ -1,0 +1,22 @@
+##
+# Web3
+web3 ~= 3.16.4
+
+##
+# Sockets
+# Lock yarl until aiohttp is fixed, cf. https://github.com/aio-libs/aiohttp/issues/2662
+yarl==0.18.0
+# Plain websockets for connections to the Ethereum node and orderbook observer
+websockets~=4.0.1
+# Socket.IO server to provide a WS API, backed by aiohttp for HTTP long-polling support
+python-socketio~=1.8.4
+aiohttp~=2.3.7
+
+##
+# DB
+# DB driver for application
+asyncpg==0.14.0
+# alembic for DB versioning
+alembic==0.9.6
+# For use with alembic
+psycopg2~=2.7.3.2

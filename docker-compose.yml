@@ -1,0 +1,22 @@
+version: '2'
+services:
+  contract_observer:
+    image: forkdelta/backend
+    build: .
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    links:
+      - postgres
+    volumes:
+      - .:/usr/src/app
+    command: >
+      /usr/src/app/contract_observer.py
+
+  postgres:
+    image: postgres:10-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

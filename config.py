@@ -5,3 +5,9 @@ ED_CONTRACT_ADDR = '0x8d12a197cb00d4747a1fe03395095ce2a5cc6819'
 with open('etherdelta.abi.json') as f:
     import json
     ED_CONTRACT_ABI = json.load(f)
+
+from os import environ
+POSTGRES_HOST = "postgres"
+POSTGRES_DB = environ['POSTGRES_DB']
+POSTGRES_USER = environ['POSTGRES_USER']
+POSTGRES_PASSWORD = environ['POSTGRES_PASSWORD']

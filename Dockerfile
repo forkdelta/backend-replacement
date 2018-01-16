@@ -15,3 +15,5 @@ RUN chmod +x /usr/src/app/contract_observer.py
 RUN chown -R app:app /usr/src/app
 
 USER app
+
+EXPOSE 8080

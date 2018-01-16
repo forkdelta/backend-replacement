@@ -24,7 +24,7 @@ def upgrade():
     op.execute("""create EXTENSION if not EXISTS "uuid-ossp";""")
     op.create_table(
         "transfers",
-        Column("id", UUID(), primary_key=True, server_default=text("uuid_generate_v1()")),
+        Column("id", UUID(), primary_key=True, server_default=text("uuid_generate_v1mc()")),
         Column("block_number", Integer, nullable=False),
         Column("transaction_hash", SA_TYPE_TXHASH, nullable=False),
         Column("log_index", Integer, nullable=False),

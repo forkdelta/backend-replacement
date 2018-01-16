@@ -1,7 +1,6 @@
 from app import App
 from contract_event_utils import block_timestamp
 from datetime import datetime, timezone
-from erc20_token import ERC20Token
 import logging
 from pprint import pprint
 from web3 import Web3
@@ -22,9 +21,9 @@ async def record_trade(event_name, event):
         Web3.toBytes(hexstr=event["transactionHash"]),
         event["logIndex"] if isinstance(event["logIndex"], int) else Web3.toInt(hexstr=event["logIndex"]),
         Web3.toBytes(hexstr=event["args"]["tokenGive"]),
-        event["args"]["amountGive"] * 10 ** (18 - ERC20Token(event["args"]["tokenGive"]).decimals),
+        event["args"]["amountGive"],
         Web3.toBytes(hexstr=event["args"]["tokenGet"]),
-        event["args"]["amountGet"] * 10 ** (18 - ERC20Token(event["args"]["tokenGive"]).decimals),
+        event["args"]["amountGet"],
         Web3.toBytes(hexstr=event["args"]["give"]),
         Web3.toBytes(hexstr=event["args"]["get"]),
         datetime.fromtimestamp(block_timestamp(App().web3, event["blockNumber"]), tz=None)
@@ -45,7 +44,6 @@ async def record_withdraw(event_name, event):
     logger.info("recorded deposit txid=%s, logidx=%i", event["transactionHash"], event["logIndex"] if isinstance(event["logIndex"], int) else Web3.toInt(hexstr=event["logIndex"]))
 
 async def record_transfer(transfer_direction, event):
-
     insert_statement = """
     INSERT INTO transfers
         (
@@ -62,8 +60,8 @@ async def record_transfer(transfer_direction, event):
         transfer_direction,
         Web3.toBytes(hexstr=event["args"]["token"]),
         Web3.toBytes(hexstr=event["args"]["user"]),
-        event["args"]["amount"] * 10 ** (18 - ERC20Token(event["args"]["token"]).decimals),
-        event["args"]["balance"] * 10 ** (18 - ERC20Token(event["args"]["token"]).decimals),
+        event["args"]["amount"],
+        event["args"]["balance"],
         datetime.fromtimestamp(block_timestamp(App().web3, event["blockNumber"]), tz=None)
     )
 

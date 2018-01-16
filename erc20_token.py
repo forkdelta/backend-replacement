@@ -1,4 +1,5 @@
 from config import HTTP_PROVIDER_URL
+from decimal import Decimal
 import json
 from web3 import Web3, HTTPProvider
 
@@ -11,7 +12,19 @@ class ERC20Token:
                 ERC20Token.cache = dict([(t["addr"].lower(), t["decimals"])
                                             for t in json.load(f)])
 
+        if isinstance(addr, bytes):
+            addr = Web3.toHex(addr)
         self.addr = addr.lower()
+
+    def normalize_value(self, value):
+        if not isinstance(value, Decimal):
+            value = Decimal(value)
+        return value * Decimal(10 ** self.decimals)
+
+    def denormalize_value(self, value):
+        if not isinstance(value, Decimal):
+            value = Decimal(value)
+        return value * Decimal(10.0 ** -self.decimals)
 
     @property
     def decimals(self):

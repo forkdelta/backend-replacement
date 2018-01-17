@@ -22,19 +22,26 @@ SOCKETIO_IGNORABLE = frozenset((SOCKETIO_OPEN, ))
 LOG_FORMAT = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
 
 class SocketIOClient:
-    def __init__(self, ws_url):
+    def __init__(self, ws_url,
+        ping_interval=ENGINEIO_PING_INTERVAL,
+        ping_timeout=ENGINEIO_PING_TIMEOUT):
         self.ws_url = ws_url
         self.callbacks = {}
 
         self.__configure_loggers()
         self.ws = None
         self.last_pong = None
+        self.ping_interval = ping_interval
+        self.ping_timeout = ping_timeout
 
-    def on(self, event_name):
+    def on(self, event_name, handler_func=None):
         def set_handler(handler):
             self.callbacks[event_name] = handler
             return handler
-        return set_handler
+
+        if handler_func is None:
+            return set_handler
+        return set_handler(handler_func)
 
     async def start(self):
         logger = logging.getLogger('websockets')
@@ -43,12 +50,12 @@ class SocketIOClient:
             async with connect(self.ws_url) as websocket:
                 self.ws = websocket
                 if "connect" in self.callbacks:
-                    await self.callbacks["connect"](websocket, "connect")
+                    await self.callbacks["connect"](self, "connect")
                 async for message in websocket:
                     await self.engineio_consumer(message)
         except ConnectionClosed as err:
             if "disconnect" in self.callbacks:
-                await self.callbacks["disconnect"](websocket, "disconnect")
+                await self.callbacks["disconnect"](self, "disconnect")
             logger.error("Connection closed: %s", str(err))
 
     async def emit(self, event, payload):
@@ -72,6 +79,8 @@ class SocketIOClient:
             elif message[0] == ENGINEIO_PONG:
                 logger.debug("Pong received")
                 self.last_pong = time()
+                if "pong" in self.callbacks:
+                    await self.callbacks["pong"](self, "pong")
             elif message[0] in ENGINEIO_IGNORABLE:
                 logger.debug("Ignorable engine.io type '%s' with message '%s...'", message[0], message[:65])
             else:
@@ -106,14 +115,17 @@ class SocketIOClient:
             logger.debug("Got an empty message")
 
     async def consume_socketio_event(self, json_payload):
+        logger = logging.getLogger('socketio')
         try:
             event_name, payload = json.loads(json_payload)
         except json.JSONDecodeError as error:
             if "error" in self.callbacks:
-                await self.callbacks["error"](self.ws, "error", error)
+                await self.callbacks["error"](self, "error", error)
         else:
             if event_name in self.callbacks:
-                await self.callbacks[event_name](self.ws, event_name, payload)
+                await self.callbacks[event_name](self, event_name, payload)
+            else:
+                logger.debug("Unhandled event '%s'", event_name)
 
     def __configure_loggers(self):
         logging.basicConfig(format=LOG_FORMAT)

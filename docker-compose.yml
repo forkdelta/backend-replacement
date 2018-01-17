@@ -15,6 +15,24 @@ services:
       - .:/usr/src/app
     command: >
       python3 contract_observer.py
+    restart: on-failure
+
+  etherdelta_observer:
+    image: forkdelta/backend
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    links:
+      - postgres
+    volumes:
+      - .:/usr/src/app
+    command: >
+      python3 etherdelta_observer.py
+    restart: on-failure
 
   websocket_server:
     image: forkdelta/backend
@@ -33,6 +51,7 @@ services:
       - .:/usr/src/app
     command: >
       python3 websocket_server.py
+    restart: on-failure
 
   postgres:
     image: postgres:10-alpine

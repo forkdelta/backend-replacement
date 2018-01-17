@@ -129,5 +129,5 @@ class SocketIOClient:
 
     def __configure_loggers(self):
         logging.basicConfig(format=LOG_FORMAT)
-        for (logger_name, logger_level) in (('websockets', logging.WARN), ('engineio', logging.WARN), ('socketio', logging.DEBUG)):
+        for (logger_name, logger_level) in (('websockets', logging.WARN), ('engineio', logging.WARN), ('socketio', logging.INFO)):
             logging.getLogger(logger_name).setLevel(logger_level)

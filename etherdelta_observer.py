@@ -22,7 +22,7 @@ logger.setLevel(logging.DEBUG)
 
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
-CHECK_TOKENS_PER_PONG = 3
+CHECK_TOKENS_PER_PONG = 5
 market_queue = Queue()
 # TODO: Populate from our own DB
 with open("tokens.json") as f:

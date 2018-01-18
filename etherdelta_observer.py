@@ -5,9 +5,9 @@ import asyncio
 from config import ED_WS_SERVERS
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum
 import json
 import logging
+from order_enums import OrderSource, OrderState
 from order_hash import make_order_hash
 from pprint import pformat
 from queue import Queue, Empty as QueueEmpty
@@ -73,15 +73,6 @@ async def on_pong(io_client, event):
             await io_client.emit("getMarket", { "token": token })
             await asyncio.sleep(4)
             market_queue.put(token)
-
-class OrderSource(Enum):
-    ONCHAIN = 0
-    OFFCHAIN = 1
-
-class OrderState(Enum):
-    OPEN = 0
-    FILLED = 1
-    CANCELED = 2
 
 async def record_order(order):
     insert_statement = """INSERT INTO orders

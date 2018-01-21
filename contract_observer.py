@@ -13,11 +13,55 @@ from web3 import Web3, HTTPProvider
 from websockets import connect
 from websocket_filter_set import WebsocketFilterSet
 
-web3 = Web3([])
+ZERO_ADDR = "0x0000000000000000000000000000000000000000"
+
+web3 = App().web3
 contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
 
+async def process_trade(event_name, event):
+    logger = logging.getLogger("contract_observer")
+    await record_trade(event_name, event)
+
+    # Get a list of potentially affected orders (any order from this maker and non-base token)
+    # Order maker side is recorded in `get`
+    order_maker = event["args"]["get"]
+    if event["args"]["tokenGive"] != ZERO_ADDR:
+        coin_addr = event["args"]["tokenGive"]
+    else:
+        coin_addr = event["args"]["tokenGet"]
+
+    async with App().db.acquire_connection() as conn:
+        affected_orders = await conn.fetch(
+            """
+            SELECT "id", "user", "signature", "amount_get", "amount_give"
+            FROM orders
+            WHERE "user" = $1
+                AND ("token_give" = $2 OR "token_get" = $2)
+                AND "expires" >= $3
+            """,
+            Web3.toBytes(hexstr=order_maker), Web3.toBytes(hexstr=coin_addr),
+            Web3.toInt(hexstr=event["blockNumber"]) if isinstance(event["blockNumber"], str) else event["blockNumber"])
+
+    if len(affected_orders) > 0:
+        print("for order_maker={} and token={}".format(order_maker, coin_addr))
+        print("trade amount amount_get={}, amount_give={}".format(
+            event["args"]["amountGet"], event["args"]["amountGive"]))
+        for order in affected_orders:
+            print(
+                Web3.toHex(order["signature"]),
+                    "amount get", order["amount_get"],
+                    "give", order["amount_give"],
+                    "fill", contract.call().orderFills(
+                        Web3.toHex(order["user"]),
+                        Web3.toBytes(order["signature"]))
+                )
+        print("that's all")
+    else:
+        logger.warn("No orders found for user='%s' and token='%s'", order_maker, coin_addr)
+
+
 filter_set = WebsocketFilterSet(contract)
-filter_set.on_event('Trade', record_trade)
+filter_set.on_event('Trade', process_trade)
 filter_set.on_event('Deposit', record_deposit)
 filter_set.on_event('Withdraw', record_withdraw)
 filter_set.on_event('Cancel', record_cancel)

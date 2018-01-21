@@ -2,63 +2,19 @@
 
 from app import App
 import asyncio
-from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
-from contract_event_recorders import record_cancel, record_deposit, record_trade, record_withdraw
-from enum import IntEnum
-from functools import partial
+from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, WS_PROVIDER_URL
+from contract_event_recorders import record_cancel, record_deposit, process_trade, record_withdraw
+from contract_event_utils import block_timestamp, coerce_to_int
 import json
 import logging
-from os import environ
-from web3 import Web3, HTTPProvider
+from time import time
 from websockets import connect
 from websocket_filter_set import WebsocketFilterSet
 
-ZERO_ADDR = "0x0000000000000000000000000000000000000000"
+logger = logging.getLogger("contract_observer")
 
 web3 = App().web3
 contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
-
-async def process_trade(event_name, event):
-    logger = logging.getLogger("contract_observer")
-    await record_trade(event_name, event)
-
-    # Get a list of potentially affected orders (any order from this maker and non-base token)
-    # Order maker side is recorded in `get`
-    order_maker = event["args"]["get"]
-    if event["args"]["tokenGive"] != ZERO_ADDR:
-        coin_addr = event["args"]["tokenGive"]
-    else:
-        coin_addr = event["args"]["tokenGet"]
-
-    async with App().db.acquire_connection() as conn:
-        affected_orders = await conn.fetch(
-            """
-            SELECT "id", "user", "signature", "amount_get", "amount_give"
-            FROM orders
-            WHERE "user" = $1
-                AND ("token_give" = $2 OR "token_get" = $2)
-                AND "expires" >= $3
-            """,
-            Web3.toBytes(hexstr=order_maker), Web3.toBytes(hexstr=coin_addr),
-            Web3.toInt(hexstr=event["blockNumber"]) if isinstance(event["blockNumber"], str) else event["blockNumber"])
-
-    if len(affected_orders) > 0:
-        print("for order_maker={} and token={}".format(order_maker, coin_addr))
-        print("trade amount amount_get={}, amount_give={}".format(
-            event["args"]["amountGet"], event["args"]["amountGive"]))
-        for order in affected_orders:
-            print(
-                Web3.toHex(order["signature"]),
-                    "amount get", order["amount_get"],
-                    "give", order["amount_give"],
-                    "fill", contract.call().orderFills(
-                        Web3.toHex(order["user"]),
-                        Web3.toBytes(order["signature"]))
-                )
-        print("that's all")
-    else:
-        logger.warn("No orders found for user='%s' and token='%s'", order_maker, coin_addr)
-
 
 filter_set = WebsocketFilterSet(contract)
 filter_set.on_event('Trade', process_trade)
@@ -71,6 +27,20 @@ def make_eth_subscribe(topic_filter):
              "params":["logs", topic_filter],
              "id":1,
              "jsonrpc":"2.0" }
+
+AVERAGE_BLOCK_TIME = 13.5
+ACCEPTABLE_LATENCY = AVERAGE_BLOCK_TIME + 5
+def log_latency(event):
+    block_ts = block_timestamp(App().web3, coerce_to_int(event["blockNumber"]))
+    latency = time() - block_ts
+    if latency < ACCEPTABLE_LATENCY:
+        logger.debug("Received event with %is latency", latency)
+    elif latency < 2 * ACCEPTABLE_LATENCY:
+        logger.info("Received event with %is latency", latency)
+    elif latency < 8 * ACCEPTABLE_LATENCY:
+        logger.warn("Received event with %is latency", latency)
+    else:
+        logger.critical("Received event with %is latency", latency)
 
 async def main():
     logger = logging.getLogger("contract_observer")
@@ -101,6 +71,7 @@ async def main():
                     break
             else:
                 subscription_result = json.loads(message)["params"]["result"]
+                log_latency(subscription_result)
                 await filter_set.deliver(subscription_result["topics"][0], subscription_result)
         print("Contract observer disconnected")
 

@@ -3,7 +3,7 @@
 from app import App
 import asyncio
 from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
-from contract_event_recorders import record_cancel, record_deposit, record_trade, record_withdraw
+from contract_event_recorders import record_cancel, record_deposit, record_order, record_trade, record_withdraw
 from enum import IntEnum
 from functools import partial
 import json
@@ -20,6 +20,7 @@ filter_set = WebsocketFilterSet(contract)
 filter_set.on_event('Trade', record_trade)
 filter_set.on_event('Deposit', record_deposit)
 filter_set.on_event('Withdraw', record_withdraw)
+filter_set.on_event('Order', record_order)
 filter_set.on_event('Cancel', record_cancel)
 
 def make_eth_subscribe(topic_filter):

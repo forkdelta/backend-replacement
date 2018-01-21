@@ -68,5 +68,10 @@ async def record_transfer(transfer_direction, event):
     async with App().db.acquire_connection() as connection:
         await connection.execute(insert_statement, *insert_args)
 
+def record_order(event_name, event):
+    print("record_order", event)
+    pass
+
 def record_cancel(event_name, event):
-    print("record_cancel", event)
+    # print("record_cancel", event)
+    pass

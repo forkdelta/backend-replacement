@@ -98,7 +98,7 @@ class SocketIOClient:
                 await self.ws.send(ENGINEIO_PING)
                 logger.debug("Ping sent")
             else:
-                logger.warn("Pong timeout: %i seconds since last pong, disconnect", time() - last_pong)
+                logger.warn("Pong timeout: %i seconds since last pong, disconnect", time() - self.last_pong)
                 await self.ws.close()
 
     async def socketio_consumer(self, message):

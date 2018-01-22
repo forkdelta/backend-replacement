@@ -143,21 +143,27 @@ def format_order(record):
     if side == "buy":
         coin_contract = ERC20Token(record["token_get"])
         base_contract = ERC20Token(record["token_give"])
-        available_volume = record["amount_get"]
+
+        available_volume = record["amount_get"] - record["amount_fill"]
         eth_available_volume = coin_contract.denormalize_value(available_volume)
-        available_volume_base = record["amount_give"]
+
+        filled_base = record["amount_fill"] * record["amount_give"] / record["amount_get"]
+        available_volume_base = record["amount_give"] - filled_base
         eth_available_volume_base = base_contract.denormalize_value(available_volume_base)
     else:
         coin_contract = ERC20Token(record["token_give"])
         base_contract = ERC20Token(record["token_get"])
-        available_volume = record["amount_give"]
+
+        available_volume = record["amount_give"] - record["amount_fill"]
         eth_available_volume = coin_contract.denormalize_value(available_volume)
-        available_volume_base = record["amount_get"]
+
+        filled_base = record["amount_fill"] * record["amount_get"] / record["amount_give"]
+        available_volume_base = record["amount_get"] - filled_base
         eth_available_volume_base = base_contract.denormalize_value(available_volume_base)
 
     price = eth_available_volume_base / eth_available_volume if eth_available_volume > 0 else 0.0
 
-    return {
+    response = {
         "id": "{}_{}".format(Web3.toHex(record["signature"]), side),
         "user": Web3.toHex(record["user"]),
 
@@ -173,8 +179,11 @@ def format_order(record):
         "availableVolumeBase": str(available_volume_base).lower(),
         "ethAvailableVolumeBase": str(eth_available_volume_base).lower(),
 
-        "amount": str(available_volume).lower(),
+        "amount": str(available_volume if side == "sell" else -available_volume).lower(),
+        "amountFilled": str(record["amount_fill"]).lower(),
         "price": str(price).lower(),
+
+        "state": record["state"],
 
         # Signature: null on on-chain orders
         "v": record["v"],
@@ -184,6 +193,8 @@ def format_order(record):
         "date": record["date"].isoformat(),
         "updated": record["date"].isoformat() # TODO: Updated time
     }
+
+    return response
 
 @sio.on('getMarket')
 async def get_market(sid, data):

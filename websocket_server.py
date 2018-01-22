@@ -99,7 +99,7 @@ async def get_transfers(token_hexstr, user_hexstr):
             Web3.toBytes(hexstr=token_hexstr),
             Web3.toBytes(hexstr=ZERO_ADDR))
 
-async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expires_after=None, sort=None):
+async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expires_after=None, state=None, sort=None):
     where = '("token_give" = $1 AND "token_get" = $2)'
     placeholder_args = [
         Web3.toBytes(hexstr=token_give_hexstr),
@@ -113,6 +113,10 @@ async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expi
     if expires_after:
         where += ' AND ("expires" > ${})'.format(len(placeholder_args) + 1)
         placeholder_args.append(expires_after)
+
+    if state:
+        where += ' AND ("state" = ${})'.format(len(placeholder_args) + 1)
+        placeholder_args.append(state)
 
     order_by = ['expires ASC']
     if sort is not None:
@@ -195,9 +199,11 @@ async def get_market(sid, data):
     if token:
         trades = await get_trades(token)
         orders_buys = await get_orders(ZERO_ADDR, token,
+                                        state=OrderState.OPEN.name,
                                         sort="(amount_give / amount_get) DESC",
                                         expires_after=current_block)
         orders_sells = await get_orders(token, ZERO_ADDR,
+                                        state=OrderState.OPEN.name,
                                         sort="(amount_get / amount_give) ASC",
                                         expires_after=current_block)
         if user:

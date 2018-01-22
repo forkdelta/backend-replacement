@@ -1,6 +1,6 @@
 from app import App
 from contract_event_utils import block_timestamp
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 from pprint import pprint
 from utils import coerce_to_int, parse_insert_status
@@ -62,8 +62,9 @@ UPDATE_ORDER_FILL_STMT = """
         "state" = (CASE
                     WHEN "state" IN ('FILLED'::orderstate, 'CANCELED'::orderstate) THEN "state"
                     WHEN ("amount_get" <= GREATEST("amount_fill", $1)) THEN 'FILLED'::orderstate
-                    ELSE 'OPEN'::orderstate END)
-    WHERE "signature" = $2
+                    ELSE 'OPEN'::orderstate END),
+        "updated" = $2
+    WHERE "signature" = $3
 """
 async def update_order_fills(contract, orders):
     order_fills = contract.call().orderFills
@@ -71,8 +72,9 @@ async def update_order_fills(contract, orders):
         order_maker = Web3.toHex(order["user"])
         order_signature = Web3.toBytes(order["signature"])
 
+        updated_at = datetime.fromtimestamp(block_timestamp(App().web3, "latest"), tz=None)
         amount_fill = order_fills(order_maker, order_signature)
-        update_args = (amount_fill, order_signature)
+        update_args = (amount_fill, updated_at, order_signature)
         async with App().db.acquire_connection() as conn:
             await conn.execute(UPDATE_ORDER_FILL_STMT, *update_args)
 

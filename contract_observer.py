@@ -4,10 +4,11 @@ from app import App
 import asyncio
 from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, WS_PROVIDER_URL
 from contract_event_recorders import record_cancel, record_deposit, process_trade, record_withdraw
-from contract_event_utils import block_timestamp, coerce_to_int
+from contract_event_utils import block_timestamp
 import json
 import logging
 from time import time
+from utils import coerce_to_int
 from websockets import connect
 from websocket_filter_set import WebsocketFilterSet
 

@@ -99,7 +99,7 @@ async def get_transfers(token_hexstr, user_hexstr):
             Web3.toBytes(hexstr=token_hexstr),
             Web3.toBytes(hexstr=ZERO_ADDR))
 
-async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expires_after=None, sort=None):
+async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expires_after=None, state=None, sort=None):
     where = '("token_give" = $1 AND "token_get" = $2)'
     placeholder_args = [
         Web3.toBytes(hexstr=token_give_hexstr),
@@ -113,6 +113,10 @@ async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expi
     if expires_after:
         where += ' AND ("expires" > ${})'.format(len(placeholder_args) + 1)
         placeholder_args.append(expires_after)
+
+    if state:
+        where += ' AND ("state" = ${})'.format(len(placeholder_args) + 1)
+        placeholder_args.append(state)
 
     order_by = ['expires ASC']
     if sort is not None:
@@ -139,21 +143,27 @@ def format_order(record):
     if side == "buy":
         coin_contract = ERC20Token(record["token_get"])
         base_contract = ERC20Token(record["token_give"])
-        available_volume = record["amount_get"]
+
+        available_volume = record["amount_get"] - record["amount_fill"]
         eth_available_volume = coin_contract.denormalize_value(available_volume)
-        available_volume_base = record["amount_give"]
+
+        filled_base = record["amount_fill"] * record["amount_give"] / record["amount_get"]
+        available_volume_base = record["amount_give"] - filled_base
         eth_available_volume_base = base_contract.denormalize_value(available_volume_base)
     else:
         coin_contract = ERC20Token(record["token_give"])
         base_contract = ERC20Token(record["token_get"])
-        available_volume = record["amount_give"]
+
+        available_volume = record["amount_give"] - record["amount_fill"]
         eth_available_volume = coin_contract.denormalize_value(available_volume)
-        available_volume_base = record["amount_get"]
+
+        filled_base = record["amount_fill"] * record["amount_get"] / record["amount_give"]
+        available_volume_base = record["amount_get"] - filled_base
         eth_available_volume_base = base_contract.denormalize_value(available_volume_base)
 
     price = eth_available_volume_base / eth_available_volume if eth_available_volume > 0 else 0.0
 
-    return {
+    response = {
         "id": "{}_{}".format(Web3.toHex(record["signature"]), side),
         "user": Web3.toHex(record["user"]),
 
@@ -169,8 +179,11 @@ def format_order(record):
         "availableVolumeBase": str(available_volume_base).lower(),
         "ethAvailableVolumeBase": str(eth_available_volume_base).lower(),
 
-        "amount": str(available_volume).lower(),
+        "amount": str(available_volume if side == "sell" else -available_volume).lower(),
+        "amountFilled": str(record["amount_fill"]).lower(),
         "price": str(price).lower(),
+
+        "state": record["state"],
 
         # Signature: null on on-chain orders
         "v": record["v"],
@@ -180,6 +193,8 @@ def format_order(record):
         "date": record["date"].isoformat(),
         "updated": record["date"].isoformat() # TODO: Updated time
     }
+
+    return response
 
 @sio.on('getMarket')
 async def get_market(sid, data):
@@ -195,9 +210,11 @@ async def get_market(sid, data):
     if token:
         trades = await get_trades(token)
         orders_buys = await get_orders(ZERO_ADDR, token,
+                                        state=OrderState.OPEN.name,
                                         sort="(amount_give / amount_get) DESC",
                                         expires_after=current_block)
         orders_sells = await get_orders(token, ZERO_ADDR,
+                                        state=OrderState.OPEN.name,
                                         sort="(amount_get / amount_give) ASC",
                                         expires_after=current_block)
         if user:

@@ -19,8 +19,6 @@ SOCKETIO_OPEN = "0"
 SOCKETIO_EVENT = "2"
 SOCKETIO_IGNORABLE = frozenset((SOCKETIO_OPEN, ))
 
-LOG_FORMAT = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-
 class SocketIOClient:
     def __init__(self, ws_url,
         ping_interval=ENGINEIO_PING_INTERVAL,
@@ -128,6 +126,5 @@ class SocketIOClient:
                 logger.debug("Unhandled event '%s'", event_name)
 
     def __configure_loggers(self):
-        logging.basicConfig(format=LOG_FORMAT)
         for (logger_name, logger_level) in (('websockets', logging.WARN), ('engineio', logging.WARN), ('socketio', logging.INFO)):
             logging.getLogger(logger_name).setLevel(logger_level)

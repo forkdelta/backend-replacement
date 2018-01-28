@@ -2,7 +2,8 @@
 
 from app import App
 import asyncio
-from config import ED_WS_SERVERS
+from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
+from contract_event_utils import block_timestamp
 from datetime import datetime
 from decimal import Decimal
 import json
@@ -14,6 +15,7 @@ from queue import Queue, Empty as QueueEmpty
 from random import sample
 from socketio_client import SocketIOClient
 from time import time
+from utils import parse_insert_status
 from web3 import Web3
 from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 
@@ -28,6 +30,9 @@ market_queue = Queue()
 with open("tokens.json") as f:
     for token in json.load(f):
         market_queue.put(token["addr"].lower())
+
+web3 = App().web3
+contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
 
 async def on_connect(io_client, event):
     logger.info("ED API client connected to %s", io_client.ws_url)
@@ -74,16 +79,28 @@ async def on_pong(io_client, event):
             await asyncio.sleep(4)
             market_queue.put(token)
 
+INSERT_ORDER_STMT = """
+    INSERT INTO orders
+    (
+        "source", "signature",
+        "token_give", "amount_give", "token_get", "amount_get",
+        "expires", "nonce", "user", "state", "v", "r", "s", "date"
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
+"""
+UPDATE_ORDER_FILL_STMT = """
+    UPDATE "orders"
+    SET "amount_fill" = GREATEST("amount_fill", $1),
+        "state" = (CASE
+                    WHEN "state" IN ('FILLED'::orderstate, 'CANCELED'::orderstate) THEN "state"
+                    WHEN ("amount_get" <= GREATEST("amount_fill", $1)) THEN 'FILLED'::orderstate
+                    ELSE 'OPEN'::orderstate END),
+        "updated"  = $2
+    WHERE "signature" = $3
+""" # Totally a duplicate of contract event recorder SQL
 async def record_order(order):
-    insert_statement = """INSERT INTO orders
-        (
-            "source", "signature",
-            "token_give", "amount_give", "token_get", "amount_get",
-            "expires", "nonce", "user", "state", "v", "r", "s", "date"
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-        ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING;"""
-
+    order_maker = order["user"]
     signature = make_order_hash(order)
     insert_args = (
         OrderSource.OFFCHAIN.name,
@@ -103,8 +120,19 @@ async def record_order(order):
     )
 
     async with App().db.acquire_connection() as connection:
-        await connection.execute(insert_statement, *insert_args)
-    logger.info("recorded order signature=%s, user=%s, expires=%i", signature, order["user"], int(order["expires"]))
+        insert_retval = await connection.execute(INSERT_ORDER_STMT, *insert_args)
+        _, _, did_insert = parse_insert_status(insert_retval)
+
+    if did_insert:
+        logger.info("recorded order signature=%s, user=%s, expires=%i", signature, order["user"], int(order["expires"]))
+        updated_at = datetime.fromtimestamp(block_timestamp(App().web3, "latest"), tz=None)
+        amount_fill = contract.call().orderFills(order_maker, Web3.toBytes(hexstr=signature))
+        update_args = (amount_fill, updated_at, Web3.toBytes(hexstr=signature))
+        async with App().db.acquire_connection() as conn:
+            await conn.execute(UPDATE_ORDER_FILL_STMT, *update_args)
+        logger.info("update order signature=%s fill=%i", signature, amount_fill)
+    else:
+        logger.debug("duplicate order signature=%s", signature)
 
 async def main(my_id, num_observers):
     ws_url = ED_WS_SERVERS[my_id]

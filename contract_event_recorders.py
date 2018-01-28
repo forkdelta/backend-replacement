@@ -2,6 +2,8 @@ from app import App
 from contract_event_utils import block_timestamp
 from datetime import datetime
 import logging
+from order_enums import OrderSource, OrderState
+from order_hash import make_order_hash
 from pprint import pprint
 from utils import coerce_to_int, parse_insert_status
 from web3 import Web3
@@ -159,5 +161,55 @@ async def record_transfer(transfer_direction, event):
 
     return bool(did_insert)
 
-def record_cancel(contract, event_name, event):
-    print("record_cancel", event)
+UPSERT_CANCELED_ORDER_STMT = """
+    INSERT INTO orders
+    (
+        "source", "signature",
+        "token_give", "amount_give", "token_get", "amount_get",
+        "expires", "nonce", "user", "state", "v", "r", "s", "date",
+        "amount_fill", "updated"
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+    ON CONFLICT ON CONSTRAINT index_orders_on_signature
+        DO UPDATE SET
+            "state" = $10, "amount_fill" = $15, "updated" = $16
+            WHERE "orders"."signature" = $2
+                AND "orders"."state" = 'OPEN'::orderstate
+"""
+async def record_cancel(contract, event_name, event):
+    order = event["args"]
+    order_maker = order["user"]
+    signature = make_order_hash(order)
+    date = datetime.fromtimestamp(block_timestamp(App().web3, event["blockNumber"]), tz=None)
+    if "r" in order and order["r"] is not None:
+        source = OrderSource.OFFCHAIN
+    else:
+        source = OrderSource.ONCHANIN
+
+    upsert_args = (
+        source.name,
+        Web3.toBytes(hexstr=signature),
+        Web3.toBytes(hexstr=order["tokenGive"]),
+        order["amountGive"],
+        Web3.toBytes(hexstr=order["tokenGet"]),
+        order["amountGet"],
+        order["expires"],
+        order["nonce"],
+        Web3.toBytes(hexstr=order["user"]),
+        OrderState.CANCELED.name,
+        int(order["v"]),
+        Web3.toBytes(text=order["r"]),
+        Web3.toBytes(text=order["s"]),
+        date,
+        order["amountGet"], # Contract updates orderFills to amountGet when trade is cancelled
+        date
+    )
+
+    async with App().db.acquire_connection() as connection:
+        upsert_retval = await connection.execute(UPSERT_CANCELED_ORDER_STMT, *upsert_args)
+        _, _, did_upsert = parse_insert_status(upsert_retval)
+
+    if did_upsert:
+        logger.debug("recorded order cancel signature=%s", signature)
+
+    return bool(did_upsert)

@@ -71,9 +71,11 @@ async def main():
                     logger.critical("socket timeout")
                     break
             else:
-                subscription_result = json.loads(message)["params"]["result"]
-                log_latency(subscription_result)
-                await filter_set.deliver(subscription_result["topics"][0], subscription_result)
+                subscription_results = json.loads(message)["params"]["result"]
+                if len(subscription_results) > 0:
+                    log_latency(subscription_results[0])
+                for subscription_result in subscription_results:
+                    await filter_set.deliver(subscription_result["topics"][0], subscription_result)
         print("Contract observer disconnected")
 
 if __name__ == "__main__":

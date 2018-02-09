@@ -1,5 +1,7 @@
-HTTP_PROVIDER_URL = 'http://159.203.19.200:8545/'
-WS_PROVIDER_URL = 'ws://159.203.19.200:8546/'
+from os import environ
+
+HTTP_PROVIDER_URL = environ.get("HTTP_PROVIDER_URL")
+WS_PROVIDER_URL = environ.get("WS_PROVIDER_URL")
 
 ED_CONTRACT_ADDR = '0x8d12a197cb00d4747a1fe03395095ce2a5cc6819'
 with open('etherdelta.abi.json') as f:
@@ -14,7 +16,6 @@ ED_WS_SERVERS = [
   "wss://socket06.etherdelta.com/socket.io/?EIO=3&transport=websocket",
 ]
 
-from os import environ
 POSTGRES_HOST = "postgres"
 POSTGRES_DB = environ.get("POSTGRES_DB")
 POSTGRES_USER = environ.get("POSTGRES_USER")

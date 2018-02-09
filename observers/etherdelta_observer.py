@@ -2,7 +2,7 @@
 
 import sys
 sys.path.insert(0, '/usr/src/app')
-sys.path.insert(0, '/usr/src/app/lib')
+sys.path.insert(0, '/usr/src/app/src')
 
 from app import App
 import asyncio

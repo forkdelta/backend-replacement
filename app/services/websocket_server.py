@@ -231,6 +231,37 @@ async def get_market(sid, data):
 
     await sio.emit('market', response, room=sid)
 
+#return ticker information, if no token specified show all
+@sio.on('returnTicker')
+async def return_ticker(sid, data):
+    print("returnTicker", data)
+
+    current_block = App().web3.eth.getBlock("latest")["number"]
+    token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
+    
+    #this will be our response
+    tickers = {}
+
+    if token:
+        #if token is passed in, only pull info for that token
+        #TODO:
+    else:
+        #else pull info for all tokens
+        #TODO:
+    
+    #TODO: this will be in the above if/else
+    ticker = {
+        'tokenAddr': ,
+        'quoteVolume': ,
+        'baseVolume': ,
+        'last': ,
+        'percentChange': ,
+        'bid': ,
+        'ask': ,   
+    }
+
+    await sio.emit('ticker', tickers, room=sid)
+
 @sio.on('disconnect')
 def disconnect(sid):
     print('disconnect ', sid)

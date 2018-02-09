@@ -16,7 +16,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      python3 contract_observer.py
+      python3 observers/contract_observer.py
     restart: on-failure
 
   etherdelta_observer:
@@ -34,7 +34,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      python3 etherdelta_observer.py
+      python3 observers/etherdelta_observer.py
     restart: on-failure
 
   websocket_server:
@@ -53,7 +53,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      python3 websocket_server.py
+      python3 server/websocket_server.py
     restart: on-failure
 
   postgres:

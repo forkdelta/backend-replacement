@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import sys
+sys.path.insert(0, '/usr/src/app')
+sys.path.insert(0, '/usr/src/app/src')
 
 from aiohttp import web
 from app import App

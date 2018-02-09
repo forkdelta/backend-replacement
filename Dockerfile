@@ -11,7 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apk del deps
 
 COPY . /usr/src/app
-RUN chmod +x /usr/src/app/contract_observer.py
 RUN chown -R app:app /usr/src/app
 
 USER app

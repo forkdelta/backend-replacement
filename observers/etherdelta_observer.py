@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+import sys
+sys.path.insert(0, '/usr/src/app')
+sys.path.insert(0, '/usr/src/app/src')
+
 from app import App
 import asyncio
 from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS

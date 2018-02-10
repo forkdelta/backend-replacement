@@ -35,6 +35,25 @@ services:
     command: >
       python3 -m app.services.etherdelta_observer
 
+  huey_consumer:
+    image: forkdelta/backend
+    build: .
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+    links:
+      - postgres
+      - redis
+    volumes:
+      - .:/usr/src/app
+    command: >
+      huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
+
   websocket_server:
     image: forkdelta/backend
     build: .
@@ -59,3 +78,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  redis:
+    image: redis:4.0-alpine

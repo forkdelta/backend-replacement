@@ -263,7 +263,8 @@ async def get_market(sid, data):
     if token:
         
         # get ticker for passed in token
-        tickers = await get_tickers(token)
+        #tickers = await get_tickers(token)
+        tickers = await get_tickers()
         
         # get all trades
         trades = await get_trades(token)

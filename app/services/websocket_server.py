@@ -257,14 +257,12 @@ async def get_market(sid, data):
     trades = []
     my_trades = []
     my_funds = []
-    tickers = {}
+    
+    # get all tickers
+    tickers = await get_tickers()
     
     # if token is passed in
     if token:
-        
-        # get ticker for passed in token
-        #tickers = await get_tickers(token)
-        tickers = await get_tickers()
         
         # get all trades
         trades = await get_trades(token)
@@ -285,11 +283,6 @@ async def get_market(sid, data):
         if user:
             my_trades = await get_trades(token, user)
             my_funds = await get_transfers(token, user)
-    
-    # no token passed in   
-    else:
-        # grab all tickers
-        tickers = await get_tickers()
 
     # return this variable
     response = {

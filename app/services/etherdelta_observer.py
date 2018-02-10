@@ -97,6 +97,7 @@ UPDATE_ORDER_FILL_STMT = """
         "updated"  = $2
     WHERE "signature" = $3
 """ # Totally a duplicate of contract event recorder SQL
+from ..tasks.update_order import update_order_by_signature
 async def record_order(order):
     order_maker = order["user"]
     signature = make_order_hash(order)
@@ -128,6 +129,9 @@ async def record_order(order):
         update_args = (amount_fill, updated_at, Web3.toBytes(hexstr=signature))
         async with App().db.acquire_connection() as conn:
             await conn.execute(UPDATE_ORDER_FILL_STMT, *update_args)
+
+        signature = make_order_hash(order)
+        update_order_by_signature(signature)
         logger.info("update order signature=%s fill=%i", signature, amount_fill)
     else:
         logger.debug("duplicate order signature=%s", signature)

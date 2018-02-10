@@ -1,6 +1,7 @@
 import asyncio
 import asyncpg
 import app.config as config
+from huey import RedisHuey
 import logging
 from os import environ
 from web3 import Web3, HTTPProvider
@@ -27,6 +28,7 @@ class App:
         def __init__(self):
             self.config = config
             self.db = DB(config)
+            self.huey = RedisHuey(host="redis", result_store=False)
             self.web3 = Web3(HTTPProvider(config.HTTP_PROVIDER_URL))
 
         def __str__(self):

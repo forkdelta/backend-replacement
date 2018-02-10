@@ -251,11 +251,10 @@ async def return_ticker(sid, data):
     
     #TODO: this will be in the above if/else
     ticker = {
-        'tokenAddr': ,
-        'quoteVolume': ,
-        'baseVolume': ,
+        'token_address': ,
+        'quote_volume': ,
+        'base_volume': ,
         'last': ,
-        'percentChange': ,
         'bid': ,
         'ask': ,   
     }

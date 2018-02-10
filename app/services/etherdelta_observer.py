@@ -1,25 +1,19 @@
-#!/usr/bin/env python
-
-import sys
-sys.path.insert(0, '/usr/src/app')
-sys.path.insert(0, '/usr/src/app/src')
-
-from app import App
+from ..app import App
 import asyncio
-from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
-from contract_event_utils import block_timestamp
+from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
+from ..src.contract_event_utils import block_timestamp
 from datetime import datetime
 from decimal import Decimal
 import json
 import logging
-from order_enums import OrderSource, OrderState
-from order_hash import make_order_hash
+from ..src.order_enums import OrderSource, OrderState
+from ..src.order_hash import make_order_hash
 from pprint import pformat
 from queue import Queue, Empty as QueueEmpty
 from random import sample
-from socketio_client import SocketIOClient
+from ..src.socketio_client import SocketIOClient
 from time import time
-from utils import parse_insert_status
+from ..src.utils import parse_insert_status
 from web3 import Web3
 from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 

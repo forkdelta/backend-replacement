@@ -1,4 +1,4 @@
-from config import HTTP_PROVIDER_URL
+from ..config import HTTP_PROVIDER_URL
 from decimal import Decimal
 import json
 from web3 import Web3, HTTPProvider

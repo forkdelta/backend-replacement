@@ -1,6 +1,6 @@
-from app import App
+from ..app import App
 import asyncio
-from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL
+from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL
 from contract_event_recorders import record_cancel, record_deposit, process_trade, record_withdraw
 import sys
 from time import time, sleep

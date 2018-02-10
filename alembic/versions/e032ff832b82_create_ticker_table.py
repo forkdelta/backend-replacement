@@ -27,6 +27,7 @@ def upgrade():
         Column("quote_volume", SA_TYPE_VALUE, nullable=False),
         Column("base_volume", SA_TYPE_VALUE, nullable=False),
         Column("last", SA_TYPE_VALUE, nullable=False),
+        Column("percent_change", SA_TYPE_VALUE, nullable=False),
         Column("bid", SA_TYPE_VALUE, nullable=False),
         Column("ask", SA_TYPE_VALUE, nullable=False),
         Column("modified", DateTime, nullable=False)

@@ -1,4 +1,4 @@
-from config import ED_CONTRACT_ADDR
+from ..config import ED_CONTRACT_ADDR
 from decimal import Decimal
 from eth_utils import add_0x_prefix, remove_0x_prefix
 from hashlib import sha256

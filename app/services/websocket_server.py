@@ -1,14 +1,9 @@
-#!/usr/bin/env python
-import sys
-sys.path.insert(0, '/usr/src/app')
-sys.path.insert(0, '/usr/src/app/src')
-
 from aiohttp import web
-from app import App
+from ..app import App
 import asyncio
-from erc20_token import ERC20Token
+from ..src.erc20_token import ERC20Token
 import logging
-from order_enums import OrderState
+from ..src.order_enums import OrderState
 from time import time
 import socketio
 from web3 import Web3

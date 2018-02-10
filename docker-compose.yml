@@ -16,8 +16,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      python3 observers/contract_observer.py
-    restart: on-failure
+      python3 -m app.services.contract_observer
 
   etherdelta_observer:
     image: forkdelta/backend
@@ -34,8 +33,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      python3 observers/etherdelta_observer.py
-    restart: on-failure
+      python3 -m app.services.etherdelta_observer
 
   websocket_server:
     image: forkdelta/backend
@@ -53,8 +51,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      python3 server/websocket_server.py
-    restart: on-failure
+      python3 -m app.services.websocket_server
 
   postgres:
     image: postgres:10-alpine

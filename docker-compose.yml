@@ -52,7 +52,7 @@ services:
     volumes:
       - .:/usr/src/app
     command: >
-      huey_consumer.py app.services.huey_consumer.huey -k greenlet --verbose
+      huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
 
   websocket_server:
     image: forkdelta/backend

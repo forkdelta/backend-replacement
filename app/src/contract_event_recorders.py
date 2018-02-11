@@ -1,12 +1,14 @@
-from ..app import App
-from app.src.contract_event_utils import block_timestamp
 from datetime import datetime
 import logging
+from pprint import pprint
+from web3 import Web3
+
+from ..app import App
+from app.src.contract_event_utils import block_timestamp
 from app.src.order_enums import OrderSource, OrderState
 from app.src.order_hash import make_order_hash
-from pprint import pprint
 from app.src.utils import coerce_to_int, parse_insert_status
-from web3 import Web3
+from ..tasks.update_order import update_orders_by_maker_and_token
 
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
@@ -22,7 +24,8 @@ async def process_trade(contract, event_name, event):
                     event["transactionHash"],
                     coerce_to_int(event["logIndex"]))
 
-        # Get a list of potentially affected orders (any order from this maker and non-base token)
+        ##
+        # Dispatch a background job to update potentially affected orders
         block_number = coerce_to_int(event["blockNumber"])
         # Order maker side is recorded in `get`
         order_maker = event["args"]["get"]
@@ -30,55 +33,10 @@ async def process_trade(contract, event_name, event):
             coin_addr = event["args"]["tokenGive"]
         else:
             coin_addr = event["args"]["tokenGet"]
-
-        affected_orders = await fetch_affected_orders(order_maker, coin_addr, block_number)
-        if len(affected_orders) > 0:
-            logger.debug("updating up to %i orders for trade txid=%s",
-                            len(affected_orders), event["transactionHash"])
-            await update_order_fills(contract, affected_orders)
-        else:
-            logger.warn("No orders found for user='%s' and token='%s'", order_maker, coin_addr)
-        logger.debug("done order updates for txid=%s", event["transactionHash"])
+        update_orders_by_maker_and_token(order_maker, coin_addr, block_number)
     else:
         logger.debug("duplicate trade txid=%s", event["transactionHash"])
 
-
-FETCH_AFFECTED_ORDERS_STMT = """
-    SELECT *
-    FROM orders
-    WHERE "user" = $1
-        AND ("token_give" = $2 OR "token_get" = $2)
-        AND "expires" >= $3
-"""
-async def fetch_affected_orders(order_maker, coin_addr, expiring_at):
-    async with App().db.acquire_connection() as conn:
-        return await conn.fetch(
-            FETCH_AFFECTED_ORDERS_STMT,
-            Web3.toBytes(hexstr=order_maker),
-            Web3.toBytes(hexstr=coin_addr),
-            expiring_at)
-
-UPDATE_ORDER_FILL_STMT = """
-    UPDATE "orders"
-    SET "amount_fill" = GREATEST("amount_fill", $1),
-        "state" = (CASE
-                    WHEN "state" IN ('FILLED'::orderstate, 'CANCELED'::orderstate) THEN "state"
-                    WHEN ("amount_get" <= GREATEST("amount_fill", $1)) THEN 'FILLED'::orderstate
-                    ELSE 'OPEN'::orderstate END),
-        "updated" = $2
-    WHERE "signature" = $3
-"""
-async def update_order_fills(contract, orders):
-    order_fills = contract.call().orderFills
-    for order in orders:
-        order_maker = Web3.toHex(order["user"])
-        order_signature = Web3.toBytes(order["signature"])
-
-        updated_at = datetime.fromtimestamp(block_timestamp(App().web3, "latest"), tz=None)
-        amount_fill = order_fills(order_maker, order_signature)
-        update_args = (amount_fill, updated_at, order_signature)
-        async with App().db.acquire_connection() as conn:
-            await conn.execute(UPDATE_ORDER_FILL_STMT, *update_args)
 
 INSERT_TRADE_STMT = """
     INSERT INTO trades
@@ -120,12 +78,14 @@ async def record_trade(contract, event_name, event):
 async def record_deposit(contract, event_name, event):
     did_insert = await record_transfer("DEPOSIT", event)
     if did_insert:
+        enqueue_order_update_for_transfer(event)
         logger.info("recorded deposit txid=%s, logidx=%i", event["transactionHash"], coerce_to_int(event["logIndex"]))
     return did_insert
 
 async def record_withdraw(contract, event_name, event):
     did_insert = await record_transfer("WITHDRAW", event)
     if did_insert:
+        enqueue_order_update_for_transfer(event)
         logger.info("recorded withdraw txid=%s, logidx=%i", event["transactionHash"], coerce_to_int(event["logIndex"]))
     return did_insert
 
@@ -160,6 +120,17 @@ async def record_transfer(transfer_direction, event):
         _, _, did_insert = parse_insert_status(insert_retval)
 
     return bool(did_insert)
+
+def enqueue_order_update_for_transfer(event):
+    """
+    Enqueues a task to update orders' fill / available volume when a
+    Deposit/Withdraw event occurs.
+    """
+    user_addr = event["args"]["user"]
+    token_addr = event["args"]["token"]
+    block_number = coerce_to_int(event["blockNumber"])
+
+    update_orders_by_maker_and_token(user_addr, token_addr, block_number)
 
 UPSERT_CANCELED_ORDER_STMT = """
     INSERT INTO orders

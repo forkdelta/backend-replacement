@@ -15,6 +15,12 @@ logger.setLevel(logging.DEBUG)
 @huey.task()
 @threaded_wrap_async
 async def update_order_by_signature(order_signature):
+    """
+    Updates the fill of a single order given its signature.
+
+    Arguments:
+    order_signature: Order signature as a 0x-prefixed hex string
+    """
     logger.debug("Update order by signature={}".format(order_signature))
     order = await fetch_order_by_signature(order_signature)
     await update_order(order)
@@ -22,8 +28,24 @@ async def update_order_by_signature(order_signature):
 
 @huey.task()
 @threaded_wrap_async
-async def update_orders_by_maker(maker_addr, token_addr):
-    print("Update order by maker={} and token={}".format(maker_addr, token_addr))
+async def update_orders_by_maker_and_token(maker_addr, token_addr, block_number):
+    """
+    Updates the fill of one or more orders given order maker and a token. The
+    token may be on either side of the transaction.
+
+    Arguments:
+    marker_addr: Ethereum address of the order maker as a 0x-prefixed hex string
+    token_addr: Address of the token on either side of the order as a 0x-prefixed hex string
+    block_number: Limit updates to orders that expire after `block_number`
+    """
+    logger.debug("Update orders by maker={} and token={}, expires >= {}".format(maker_addr, token_addr, block_number))
+    affected_orders = await fetch_affected_orders(maker_addr, token_addr, block_number)
+    if len(affected_orders) > 0:
+        logger.debug("updating up to %i orders", len(affected_orders))
+        for order in affected_orders:
+            await update_order(order)
+    else:
+        logger.warn("No orders found for maker=%s and token=%s", maker_addr, token_addr)
     return None
 
 SELECT_ORDER_STMT = """
@@ -34,6 +56,21 @@ SELECT_ORDER_STMT = """
 async def fetch_order_by_signature(signature):
     async with App().db.acquire_connection() as conn:
         return await conn.fetchrow(SELECT_ORDER_STMT, Web3.toBytes(hexstr=signature))
+
+FETCH_AFFECTED_ORDERS_STMT = """
+    SELECT *
+    FROM orders
+    WHERE "user" = $1
+        AND ("token_give" = $2 OR "token_get" = $2)
+        AND "expires" >= $3
+"""
+async def fetch_affected_orders(order_maker, coin_addr, expiring_at):
+    async with App().db.acquire_connection() as conn:
+        return await conn.fetch(
+            FETCH_AFFECTED_ORDERS_STMT,
+            Web3.toBytes(hexstr=order_maker),
+            Web3.toBytes(hexstr=coin_addr),
+            expiring_at)
 
 UPDATE_ORDER_FILL_STMT = """
     UPDATE "orders"

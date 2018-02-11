@@ -4,6 +4,7 @@ import app.config as config
 from huey import RedisHuey
 import logging
 from os import environ
+from threading import local
 from web3 import Web3, HTTPProvider
 
 class DB:
@@ -34,10 +35,13 @@ class App:
         def __str__(self):
             return repr(self)
 
-    instance = None
+    thread_local = None
     def __init__(self):
-        if not App.instance:
-            App.instance = App.__App()
+        if not App.thread_local:
+            App.thread_local = local()
+
+        if not hasattr(App.thread_local, "instance"):
+            App.thread_local.instance = App.__App()
 
     def __getattr__(self, name):
-        return getattr(self.instance, name)
+        return getattr(self.thread_local.instance, name)

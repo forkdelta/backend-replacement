@@ -70,7 +70,6 @@ def format_ticker(ticker):
         "bid": str(contract.denormalize_value(ticker["bid"])),
         "ask": str(contract.denormalize_value(ticker["ask"])),
         "modified": ticker["modified"]
-        # "modified": datetime.now().isoformat()
     }}
 
 def format_trade(trade):

@@ -87,16 +87,7 @@ INSERT_ORDER_STMT = """
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
 """
-UPDATE_ORDER_FILL_STMT = """
-    UPDATE "orders"
-    SET "amount_fill" = GREATEST("amount_fill", $1),
-        "state" = (CASE
-                    WHEN "state" IN ('FILLED'::orderstate, 'CANCELED'::orderstate) THEN "state"
-                    WHEN ("amount_get" <= GREATEST("amount_fill", $1)) THEN 'FILLED'::orderstate
-                    ELSE 'OPEN'::orderstate END),
-        "updated"  = $2
-    WHERE "signature" = $3
-""" # Totally a duplicate of contract event recorder SQL
+
 from ..tasks.update_order import update_order_by_signature
 async def record_order(order):
     order_maker = order["user"]
@@ -124,17 +115,7 @@ async def record_order(order):
 
     if did_insert:
         logger.info("recorded order signature=%s, user=%s, expires=%i", signature, order["user"], int(order["expires"]))
-        updated_at = datetime.fromtimestamp(block_timestamp(App().web3, "latest"), tz=None)
-        amount_fill = contract.call().orderFills(order_maker, Web3.toBytes(hexstr=signature))
-        update_args = (amount_fill, updated_at, Web3.toBytes(hexstr=signature))
-        async with App().db.acquire_connection() as conn:
-            await conn.execute(UPDATE_ORDER_FILL_STMT, *update_args)
-
-        signature = make_order_hash(order)
         update_order_by_signature(signature)
-        logger.info("update order signature=%s fill=%i", signature, amount_fill)
-    else:
-        logger.debug("duplicate order signature=%s", signature)
 
 async def main(my_id, num_observers):
     ws_url = ED_WS_SERVERS[my_id]

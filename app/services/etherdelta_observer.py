@@ -160,8 +160,6 @@ async def main(my_id, num_observers):
 NUM_OBSERVERS = 6
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(App().db.establish_connection())
-
     tasks = [ asyncio.ensure_future(main(i, NUM_OBSERVERS))
                 for i in range(0, NUM_OBSERVERS) ]
     loop.run_until_complete(asyncio.gather(*tasks))

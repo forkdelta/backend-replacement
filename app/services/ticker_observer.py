@@ -77,7 +77,7 @@ async def parse_orders(tickers, orders):
             if not hasattr(ticker_updates, order["token_get"]):
                 
                 ticker_updates[order["token_get"]] = {
-                    'bid': this_orders_bid.
+                    'bid': this_orders_bid,
                 }
                 
             else:

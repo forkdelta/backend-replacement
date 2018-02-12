@@ -81,13 +81,12 @@ INSERT_ORDER_STMT = """
     INSERT INTO orders
     (
         "source", "signature",
-        "token_give", "amount_give", "token_get", "amount_get",
+        "token_give", "amount_give", "token_get", "amount_get", "available_volume",
         "expires", "nonce", "user", "state", "v", "r", "s", "date"
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
 """
-
 from ..tasks.update_order import update_order_by_signature
 async def record_order(order):
     order_maker = order["user"]

@@ -63,6 +63,7 @@ FETCH_AFFECTED_ORDERS_STMT = """
     WHERE "user" = $1
         AND ("token_give" = $2 OR "token_get" = $2)
         AND "expires" >= $3
+        AND "state" = 'OPEN'::orderstate
 """
 async def fetch_affected_orders(order_maker, coin_addr, expiring_at):
     async with App().db.acquire_connection() as conn:
@@ -75,23 +76,40 @@ async def fetch_affected_orders(order_maker, coin_addr, expiring_at):
 UPDATE_ORDER_FILL_STMT = """
     UPDATE "orders"
     SET "amount_fill" = GREATEST("amount_fill", $1),
+        "available_volume" = $2,
         "state" = (CASE
                     WHEN "state" IN ('FILLED'::orderstate, 'CANCELED'::orderstate) THEN "state"
                     WHEN ("amount_get" <= GREATEST("amount_fill", $1)) THEN 'FILLED'::orderstate
                     ELSE 'OPEN'::orderstate END),
-        "updated"  = $2
-    WHERE "signature" = $3
+        "updated"  = $3
+    WHERE "signature" = $4 AND ("updated" IS NULL OR "updated" <= $3)
 """
 async def update_order(order):
     contract = App().web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
 
-    maker = Web3.toHex(order["user"])
-    signature = Web3.toBytes(order["signature"])
+    order_args = order_as_args(order)
+
     updated_at = datetime.fromtimestamp(block_timestamp(App().web3, "latest"), tz=None)
+    amount_fill = contract.call().amountFilled(*order_args)
+    available_volume = contract.call().availableVolume(*order_args)
 
-    amount_fill = contract.call().orderFills(maker, signature)
-
-    update_args = (amount_fill, updated_at, signature)
+    update_args = (amount_fill, available_volume, updated_at, order["signature"])
     async with App().db.acquire_connection() as conn:
         await conn.execute(UPDATE_ORDER_FILL_STMT, *update_args)
-    logger.info("updated order signature=%s fill=%i", Web3.toHex(signature), amount_fill)
+
+    logger.info("updated order signature=%s fill=%i available=%i",
+                    Web3.toHex(order["signature"]),
+                    amount_fill, available_volume)
+
+def order_as_args(order):
+    return (
+        Web3.toHex(order["token_get"]),
+        Web3.toInt(order["amount_get"]),
+        Web3.toHex(order["token_give"]),
+        Web3.toInt(order["amount_give"]),
+        Web3.toInt(order["expires"]),
+        Web3.toInt(order["nonce"]),
+        Web3.toHex(order["user"]),
+        order["v"],
+        order["r"],
+        order["s"])

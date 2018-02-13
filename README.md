@@ -21,7 +21,8 @@ Requirements:
 Setup:
 1. Clone the repo (git clone https://github.com/forkdelta/backend-replacement.git)
 2. Navigate to the root of the working copy, where the README file is.
-3. Rename/copy `default.env` file to `.env` in root
+3. Rename/copy `default.env` file to `.env` in root.
+4. Uncomment the `COMPOSE_FILE=` line in `.env` to enable mounting of working copy code into the containers.
 4. Build a Docker image containing our backend code: `docker-compose build contract_observer`
 5. Create the database and migrate it to the latest schema: `docker-compose run contract_observer alembic upgrade head`
 6. Run the backend systems: `docker-compose up`. You can shut everything down with Ctrl+C at any time.

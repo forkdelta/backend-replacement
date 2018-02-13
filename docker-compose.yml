@@ -5,6 +5,7 @@ services:
     build: .
     depends_on:
       - postgres
+      - redis
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -13,8 +14,7 @@ services:
       WS_PROVIDER_URL: ${WS_PROVIDER_URL}
     links:
       - postgres
-    volumes:
-      - .:/usr/src/app
+      - redis
     command: >
       python3 -m app.services.contract_observer
 
@@ -23,6 +23,7 @@ services:
     build: .
     depends_on:
       - postgres
+      - redis
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -30,8 +31,7 @@ services:
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
     links:
       - postgres
-    volumes:
-      - .:/usr/src/app
+      - redis
     command: >
       python3 -m app.services.etherdelta_observer
 
@@ -49,8 +49,6 @@ services:
     links:
       - postgres
       - redis
-    volumes:
-      - .:/usr/src/app
     command: >
       huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
 
@@ -68,8 +66,6 @@ services:
       - postgres
     ports:
       - "8080:8080"
-    volumes:
-      - .:/usr/src/app
     command: >
       python3 -m app.services.websocket_server
 
@@ -79,6 +75,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /var/lib/postgresql/data
 
   redis:
     image: redis:4.0-alpine

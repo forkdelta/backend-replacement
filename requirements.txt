@@ -28,3 +28,15 @@ huey[backends]~=1.7.0
 redis~=2.10.6
 # Use greenlets for huey: our tasks are mostly I/O bound
 gevent
+
+
+##
+# Data tools
+# A data object validation tool:
+cerberus==1.1
+
+##
+# Crypto tools
+# ecrecover support:
+coincurve>=7.0.0
+rlp>=0.4.7

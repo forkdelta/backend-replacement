@@ -1,6 +1,7 @@
 from aiohttp import web
 from ..app import App
 import asyncio
+from ..config import ED_CONTRACT_ADDR
 from ..src.erc20_token import ERC20Token
 import logging
 from ..src.order_enums import OrderState
@@ -17,6 +18,7 @@ ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
 
 logger = logging.getLogger('websocket_server')
+logger.setLevel(logging.DEBUG)
 
 @sio.on('connect')
 def connect(sid, environ):
@@ -244,6 +246,55 @@ async def get_market(sid, data):
     }
 
     await sio.emit('market', response, room=sid)
+
+from ..src.order_message_validator import OrderMessageValidator
+from ..src.order_signature import order_signature_valid
+@sio.on('message')
+async def handle_order(sid, data):
+    """
+    Handles `message` event type. See schema for payload schema.
+
+    On error, emits a `messageResult` event to the originating sid with an array payload, containing:
+    1. Error code:
+      - 400 if the event payload could not be interpreted due to client error (cf. https://httpstatuses.com/400)
+      - 422 if the event payload contained semantic errors (cf. https://httpstatuses.com/422)
+    2. A string error message with a brief description of the problem.
+    3. An object containing some useful details for debugging.
+
+    On success, emits a `messageResult` event to the originating sid with an array payload, containing:
+    1. Success code 200.
+    2. A brief message confirming success.
+    """
+    v = OrderMessageValidator()
+    if not v.validate(data):
+        error_msg = "Invalid message format"
+        await sio.emit("messageResult", [400, error_msg, dict(data=data, errors=v.errors)])
+        return
+
+    message = v.document # Get data with validated and coerced values
+
+    # Require new orders are posted to the latest contract
+    if message["contractAddr"].lower() != ED_CONTRACT_ADDR.lower():
+        error_msg = "Cannot post an order to contract {}".format(message["contractAddr"].lower())
+        await sio.emit("messageResult", [422, error_msg])
+        return
+
+    # Require new orders to be non-expired
+    current_block = App().web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order
+    if message["expires"] <= current_block:
+        error_msg = "Cannot post order because it has already expired"
+        await sio.emit("messageResult", [422, error_msg, { "blockNumber": current_block }])
+        return
+
+    # Oh yes, require orders to have a valid signature
+    if not order_signature_valid(message):
+        error_msg = "Cannot post order: invalid signature"
+        await sio.emit("messageResult", [422, error_msg])
+        return
+
+    # TODO: 3. Record order
+    # TODO: 4. Enqueue a job to refresh available volume
+    await sio.emit('messageResult', [200, "Good job!"], room=sid)
 
 @sio.on('disconnect')
 def disconnect(sid):

@@ -10,7 +10,7 @@ yarl==0.18.0
 websockets~=4.0.1
 # Socket.IO server to provide a WS API, backed by aiohttp for HTTP long-polling support
 python-socketio~=1.8.4
-aiohttp~=2.3.7
+aiohttp==2.3.7
 
 ##
 # DB

@@ -7,6 +7,8 @@ def order_signature_valid(message):
     """
     Performs the black magic ritual of verifying order signatures.
 
+    Reverse engineered from frontend and contract.
+
     Returns True if the spirits say "yes", and False otherwise.
     """
 

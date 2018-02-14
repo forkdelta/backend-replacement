@@ -9,6 +9,7 @@ from time import time
 import socketio
 from web3 import Web3
 import websockets
+from datetime import datetime
 
 sio = socketio.AsyncServer()
 app = web.Application()
@@ -23,6 +24,55 @@ logger.setLevel(logging.DEBUG)
 @sio.on('connect')
 def connect(sid, environ):
     logger.debug("connect ", sid)
+
+# get returnTicker, grabs data from tickers table
+async def get_tickers(token_hexstr):
+
+    # init
+    where = ''
+    placeholder_args = []
+
+    # if token is passed in, add where addr = token
+    if token_hexstr:
+        where = '("token_address" = $1)'
+        placeholder_args = [Web3.toBytes(hexstr=token_hexstr), ]
+
+    # connect to db and grab data from tickers table
+    async with App().db.acquire_connection() as conn:
+        return await conn.fetch(
+            """
+            SELECT *
+            FROM tickers
+            WHERE {}
+            ORDER BY token_address DESC
+            """.format(where),
+            *placeholder_args)
+
+# format ticker information to camelcase from underscore, sanitize, add modified date
+"""
+    sample return data:
+    ETH_0x8f3470a7388c05ee4e7af3d01d8c722b0ff52374:
+   { tokenAddr: '0x8f3470a7388c05ee4e7af3d01d8c722b0ff52374',
+     quoteVolume: 1000.1,
+     baseVolume: 212.3,
+     last: 0.245,
+     percentChange: 0.0047,
+     bid: 0.243,
+     ask: 0.246,
+     modified: 2018-01-15T15:53:00},
+"""
+def format_ticker(ticker):
+    contract = ERC20Token(ticker["token_address"])
+    return { "{}_{}".format("ETH", Web3.toHex(ticker["token_address"]) : {
+        "tokenAddr": Web3.toHex(ticker["token_address"]),
+        "quoteVolume": str(contract.denormalize_value(ticker["quote_volume"])),
+        "baseVolume": str(contract.denormalize_value(ticker["base_volume"])),
+        "last": str(contract.denormalize_value(ticker["last"])),
+        "percentChange": str(contract.denormalize_value(ticker["percent_change"])),
+        "bid": str(contract.denormalize_value(ticker["bid"])),
+        "ask": str(contract.denormalize_value(ticker["ask"])),
+        "modified": ticker["modified"]
+    }}
 
 def format_trade(trade):
     contract_give = ERC20Token(trade["token_give"])
@@ -214,26 +264,42 @@ async def get_market(sid, data):
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
 
+    # response vars
     trades = []
     my_trades = []
     my_funds = []
+    
+    # get all tickers
+    tickers = await get_tickers()
+    
+    # if token is passed in
     if token:
+        
+        # get all trades
         trades = await get_trades(token)
+        
+        # get all buy orders
         orders_buys = await get_orders(ZERO_ADDR, token,
                                         state=OrderState.OPEN.name,
                                         with_available_volume=True,
                                         sort="(amount_give / amount_get) DESC",
                                         expires_after=current_block)
+        
+        # get all sell orders
         orders_sells = await get_orders(token, ZERO_ADDR,
                                         state=OrderState.OPEN.name,
                                         with_available_volume=True,
                                         sort="(amount_get / amount_give) ASC",
                                         expires_after=current_block)
+        
+        # if user is also passed in 
         if user:
             my_trades = await get_trades(token, user)
             my_funds = await get_transfers(token, user)
 
+    # return this variable
     response = {
+        "returnTicker": [format_ticker(ticker) for ticker in tickers],
         "trades": [format_trade(trade) for trade in trades],
         "myTrades": [format_trade(trade) for trade in my_trades],
         "myFunds": [format_transfer(transfer) for transfer in my_funds],

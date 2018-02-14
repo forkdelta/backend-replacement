@@ -22,7 +22,7 @@ logger.setLevel(logging.DEBUG)
 
 @sio.on('connect')
 def connect(sid, environ):
-    print("connect ", sid)
+    logger.debug("connect ", sid)
 
 def format_trade(trade):
     contract_give = ERC20Token(trade["token_give"])
@@ -125,8 +125,6 @@ async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expi
     if sort is not None:
         order_by.insert(0, sort)
 
-    logger.debug(where)
-
     async with App().db.acquire_connection() as conn:
         return await conn.fetch(
             """
@@ -210,7 +208,7 @@ def format_order(record):
 
 @sio.on('getMarket')
 async def get_market(sid, data):
-    print("getMarket", data)
+    logger.debug("getMarket", data)
 
     current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
@@ -307,7 +305,7 @@ async def handle_order(sid, data):
 
 @sio.on('disconnect')
 def disconnect(sid):
-    print('disconnect ', sid)
+    logger.debug('disconnect ', sid)
 
 if __name__ == "__main__":
     web.run_app(app)

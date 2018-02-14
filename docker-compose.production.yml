@@ -1,0 +1,14 @@
+version: '2'
+services:
+  contract_observer:
+    restart: on-failure
+
+  etherdelta_observer:
+    restart: on-failure
+
+  huey_consumer:
+    restart: on-failure
+
+  websocket_server:
+    restart: on-failure
+

@@ -66,8 +66,6 @@ services:
     links:
       - postgres
       - redis
-    ports:
-      - "8080:8080"
     command: >
       python3 -m app.services.websocket_server
 

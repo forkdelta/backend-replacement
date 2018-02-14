@@ -1,0 +1,4 @@
+conf.d/*
+!conf.d/.keep
+vhost.d/*
+!vhost.d/.keep

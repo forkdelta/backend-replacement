@@ -17,7 +17,7 @@ services:
     environment:
       LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
       LETSENCRYPT_HOST: ${LETSENCRYPT_HOST}
-      VIRTUAL_HOST: api.${SERVERNAME}
+      VIRTUAL_HOST: ${SERVERNAME},api.${SERVERNAME}
       VIRTUAL_PORT: "8080"
     restart: on-failure
 
@@ -28,10 +28,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: nginx # Need to name it in a specific way for nginx-dockergen to be able to restart it
-    labels:
-      - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
     ports:
-      - "80:80"
       - "443:443"
     volumes:
       - ./etc/nginx/conf.d:/etc/nginx/conf.d
@@ -43,8 +40,6 @@ services:
   # containers, whenever they change.
   nginx-gen:
     image: jwilder/docker-gen # also alpine, if you're wondering
-    labels:
-      - com.github.jrcs.letsencrypt_nginx_proxy_companion.docker_gen
     volumes_from:
       - nginx
     volumes:
@@ -52,14 +47,6 @@ services:
       - ./etc/nginx/nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl:ro
     command: >
       -notify-sighup nginx -watch -wait 5s:30s /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
-
-  letsencrypt-proxy-companion:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    volumes:
-      - ./etc/nginx/certs:/etc/nginx/certs:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    volumes_from:
-      - nginx
 
 volumes:
   postgres-data:

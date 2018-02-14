@@ -247,8 +247,10 @@ async def get_market(sid, data):
 
     await sio.emit('market', response, room=sid)
 
+from ..src.order_hash import make_order_hash
 from ..src.order_message_validator import OrderMessageValidator
 from ..src.order_signature import order_signature_valid
+from ..src.record_order import record_order
 @sio.on('message')
 async def handle_order(sid, data):
     """
@@ -262,7 +264,7 @@ async def handle_order(sid, data):
     3. An object containing some useful details for debugging.
 
     On success, emits a `messageResult` event to the originating sid with an array payload, containing:
-    1. Success code 200.
+    1. Success code 202: the order has been accepted.
     2. A brief message confirming success.
     """
     v = OrderMessageValidator()
@@ -292,9 +294,16 @@ async def handle_order(sid, data):
         await sio.emit("messageResult", [422, error_msg])
         return
 
-    # TODO: 3. Record order
-    # TODO: 4. Enqueue a job to refresh available volume
-    await sio.emit('messageResult', [200, "Good job!"], room=sid)
+    # 3. Record order
+    did_insert = await record_order(message)
+    if did_insert:
+        signature = make_order_hash(message)
+        logger.info("recorded order signature=%s, user=%s, expires=%i", signature, message["user"], message["expires"])
+
+        # 4. Enqueue a job to refresh available volume
+        update_order_by_signature(signature)
+
+    await sio.emit('messageResult', [202, "Good job!"], room=sid)
 
 @sio.on('disconnect')
 def disconnect(sid):

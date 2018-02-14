@@ -39,7 +39,7 @@ services:
       - ./etc/nginx/certs:/etc/nginx/certs:ro
       - ./etc/nginx/html:/usr/share/nginx/html
 
-  # Service that updates nginx config to point to the right rails-app
+  # Service that updates nginx config to point to the right service
   # containers, whenever they change.
   nginx-dockergen:
     image: jwilder/docker-gen # also alpine, if you're wondering

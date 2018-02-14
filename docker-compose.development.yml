@@ -19,5 +19,7 @@ services:
       - .:/usr/src/app
 
   websocket_server:
+    ports:
+      - "8080:8080"
     volumes:
       - .:/usr/src/app

@@ -12,3 +12,9 @@ services:
   websocket_server:
     restart: on-failure
 
+  postgres:
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

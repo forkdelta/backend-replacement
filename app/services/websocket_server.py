@@ -1,14 +1,16 @@
 from aiohttp import web
-from ..app import App
 import asyncio
-from ..config import ED_CONTRACT_ADDR
-from ..src.erc20_token import ERC20Token
+from datetime import datetime
 import logging
-from ..src.order_enums import OrderState
 from time import time
 import socketio
 from web3 import Web3
 import websockets
+
+from ..app import App
+from ..config import ED_CONTRACT_ADDR
+from ..src.erc20_token import ERC20Token
+from ..src.order_enums import OrderState
 
 sio = socketio.AsyncServer()
 app = web.Application()
@@ -22,7 +24,7 @@ logger.setLevel(logging.DEBUG)
 
 @sio.on('connect')
 def connect(sid, environ):
-    logger.debug("connect ", sid)
+    logger.debug("connect %s", sid)
 
 def format_trade(trade):
     contract_give = ERC20Token(trade["token_give"])
@@ -208,8 +210,6 @@ def format_order(record):
 
 @sio.on('getMarket')
 async def get_market(sid, data):
-    logger.debug("getMarket", data)
-
     current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
@@ -234,6 +234,7 @@ async def get_market(sid, data):
             my_funds = await get_transfers(token, user)
 
     response = {
+        "returnTicker": {},
         "trades": [format_trade(trade) for trade in trades],
         "myTrades": [format_trade(trade) for trade in my_trades],
         "myFunds": [format_transfer(transfer) for transfer in my_funds],
@@ -268,7 +269,9 @@ async def handle_order(sid, data):
     v = OrderMessageValidator()
     if not v.validate(data):
         error_msg = "Invalid message format"
-        await sio.emit("messageResult", [400, error_msg, dict(data=data, errors=v.errors)])
+        details_dict = dict(data=data, errors=v.errors)
+        logger.warning("Order rejected: %s: %s", error_msg, details_dict)
+        await sio.emit("messageResult", [400, error_msg, details_dict], room=sid)
         return
 
     message = v.document # Get data with validated and coerced values
@@ -276,20 +279,24 @@ async def handle_order(sid, data):
     # Require new orders are posted to the latest contract
     if message["contractAddr"].lower() != ED_CONTRACT_ADDR.lower():
         error_msg = "Cannot post an order to contract {}".format(message["contractAddr"].lower())
-        await sio.emit("messageResult", [422, error_msg])
+        logger.warning("Order rejected: %s", error_msg)
+        await sio.emit("messageResult", [422, error_msg], room=sid)
         return
 
     # Require new orders to be non-expired
     current_block = App().web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order
     if message["expires"] <= current_block:
         error_msg = "Cannot post order because it has already expired"
-        await sio.emit("messageResult", [422, error_msg, { "blockNumber": current_block }])
+        details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow() }
+        logger.warning("Order rejected: %s: %s", error_msg, details_dict)
+        await sio.emit("messageResult", [422, error_msg, details_dict], room=sid)
         return
 
     # Oh yes, require orders to have a valid signature
     if not order_signature_valid(message):
+        logger.warning("Order rejected: Invalid signature: order = %s", message)
         error_msg = "Cannot post order: invalid signature"
-        await sio.emit("messageResult", [422, error_msg])
+        await sio.emit("messageResult", [422, error_msg], room=sid)
         return
 
     # 3. Record order
@@ -305,7 +312,7 @@ async def handle_order(sid, data):
 
 @sio.on('disconnect')
 def disconnect(sid):
-    logger.debug('disconnect ', sid)
+    logger.debug('disconnect %s', sid)
 
 if __name__ == "__main__":
     web.run_app(app)

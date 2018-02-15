@@ -22,7 +22,7 @@ logger.setLevel(logging.DEBUG)
 
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
-CHECK_TOKENS_PER_PONG = 5
+CHECK_TOKENS_PER_PONG = 2
 market_queue = Queue()
 # TODO: Populate from our own DB
 with open("tokens.json") as f:
@@ -73,6 +73,7 @@ async def on_pong(io_client, event):
         except QueueEmpty:
             break # better luck next time!
         else:
+            logger.info("Query token %s", token)
             await io_client.emit("getMarket", { "token": token })
             await asyncio.sleep(4)
             market_queue.put(token)

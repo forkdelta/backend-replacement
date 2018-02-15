@@ -214,9 +214,7 @@ async def get_market(sid, data):
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
 
-    trades = []
-    my_trades = []
-    my_funds = []
+    response = dict(returnTicker={})
     if token:
         trades = await get_trades(token)
         orders_buys = await get_orders(ZERO_ADDR, token,
@@ -229,20 +227,36 @@ async def get_market(sid, data):
                                         with_available_volume=True,
                                         sort="(amount_get / amount_give) ASC",
                                         expires_after=current_block)
+
+        response.update({
+            "trades": [format_trade(trade) for trade in trades],
+            "orders": {
+                "buys": [format_order(order) for order in orders_buys],
+                "sells": [format_order(order) for order in orders_sells]
+            }
+        })
+
         if user:
             my_trades = await get_trades(token, user)
             my_funds = await get_transfers(token, user)
-
-    response = {
-        "returnTicker": {},
-        "trades": [format_trade(trade) for trade in trades],
-        "myTrades": [format_trade(trade) for trade in my_trades],
-        "myFunds": [format_transfer(transfer) for transfer in my_funds],
-        "orders": {
-            "buys": [format_order(order) for order in orders_buys],
-            "sells": [format_order(order) for order in orders_sells]
-        }
-    }
+            my_orders_buys = await get_orders(ZERO_ADDR, token,
+                                            user_hexstr=user,
+                                            state=OrderState.OPEN.name,
+                                            sort="(amount_give / amount_get) DESC",
+                                            expires_after=current_block)
+            my_orders_sells = await get_orders(token, ZERO_ADDR,
+                                            user_hexstr=user,
+                                            state=OrderState.OPEN.name,
+                                            sort="(amount_get / amount_give) ASC",
+                                            expires_after=current_block)
+            response.update({
+                "myTrades": [format_trade(trade) for trade in my_trades],
+                "myFunds": [format_transfer(transfer) for transfer in my_funds],
+                "myOrders": {
+                    "buys": [format_order(order) for order in my_orders_buys],
+                    "sells": [format_order(order) for order in my_orders_sells]
+                }
+            })
 
     await sio.emit('market', response, room=sid)
 

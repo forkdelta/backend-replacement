@@ -54,6 +54,7 @@ async def get_last_trade(token_hexstr):
             SELECT *
             FROM trades
             WHERE ("token_give" = $1 OR "token_get" = $1)
+                AND ("amount_get" > 0 AND "amount_give" > 0)
             ORDER BY "date" DESC
             LIMIT 1
             """, Web3.toBytes(hexstr=token_hexstr))
@@ -71,6 +72,7 @@ async def get_market_spread(token_hexstr, current_block):
                     WHERE ("token_give" = $1 AND "token_get" = $2)
                         AND "state" = 'OPEN'::orderstate
                         AND "expires" > $3
+                        AND ("amount_get" > 0 AND "amount_give" > 0)
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
                     ) AS bid,
                 (SELECT MIN(amount_get / amount_give::numeric)
@@ -78,6 +80,7 @@ async def get_market_spread(token_hexstr, current_block):
                     WHERE ("token_give" = $2 AND "token_get" = $1)
                         AND "state" = 'OPEN'::orderstate
                         AND "expires" > $3
+                        AND ("amount_get" > 0 AND "amount_give" > 0)
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
                     ) AS ask
             """,

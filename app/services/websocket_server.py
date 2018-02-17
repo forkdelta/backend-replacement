@@ -14,6 +14,7 @@ from ..src.order_enums import OrderState
 
 sio = socketio.AsyncServer()
 app = web.Application()
+routes = web.RouteTableDef()
 sio.attach(app)
 
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
@@ -269,13 +270,48 @@ def format_order(record):
 
     return response
 
+async def get_tickers():
+    async with App().db.acquire_connection() as conn:
+        return await conn.fetch("""
+            SELECT *
+            FROM tickers
+            ORDER BY token_address
+            """)
+
+def ticker_key(ticker):
+    return "{}_{}".format("ETH", Web3.toHex(ticker["token_address"])[:9])
+
+def format_ticker(ticker):
+    return dict(
+        tokenAddr=Web3.toHex(ticker["token_address"]),
+        quoteVolume=str(ticker["quote_volume"]).lower(),
+        baseVolume=str(ticker["base_volume"]).lower(),
+        last=str(ticker["last"]).lower() if ticker["last"] else None,
+        bid=str(ticker["bid"]).lower() if ticker["bid"] else None,
+        ask=str(ticker["ask"]).lower() if ticker["ask"] else None,
+        updated=ticker["updated"].isoformat()
+    )
+
+def format_tickers(tickers):
+    return {
+        ticker_key(ticker): format_ticker(ticker)
+        for ticker in tickers
+    }
+
+@routes.get('/returnTicker')
+async def http_return_ticker(request):
+    return web.json_response(format_tickers(await get_tickers()))
+
 @sio.on('getMarket')
 async def get_market(sid, data):
     current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
 
-    response = dict(returnTicker={})
+    response = {
+        "returnTicker": format_tickers(await get_tickers())
+    }
+
     if token:
         trades = await get_trades(token)
         orders_buys = await get_orders(ZERO_ADDR, token,
@@ -414,6 +450,7 @@ async def handle_order(sid, data):
 def disconnect(sid):
     logger.debug('disconnect %s', sid)
 
+app.router.add_routes(routes)
 if __name__ == "__main__":
     sio.start_background_task(stream_updates)
     web.run_app(app)

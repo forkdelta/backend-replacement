@@ -279,6 +279,12 @@ async def get_tickers():
             """, ZERO_ADDR_BYTES)
 
 def ticker_key(ticker):
+    """
+    Given a ticker record, returns a ticker dictionary key.
+
+    The key consists of base name (currently, ETH), an underscore, and 9
+    first characters of the contract address.
+    """
     return "{}_{}".format("ETH", Web3.toHex(ticker["token_address"])[:9])
 
 def format_ticker(ticker):

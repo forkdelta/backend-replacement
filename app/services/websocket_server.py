@@ -22,9 +22,39 @@ ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
 logger = logging.getLogger('websocket_server')
 logger.setLevel(logging.DEBUG)
 
+ALLOWED_ORIGIN_SUFFIXES = ('forkdelta.com', 'forkdelta.github.io', 'deltabalances.github.io', 'localhost', 'devd.io')
+from urllib.parse import urlparse
+def is_origin_allowed(origin):
+    """
+    Returns True if the origin has hostname suffix in the allowed origins list.
+    Additionally, returns True if the origin has `file` scheme.
+    Otherwise, returns False.
+
+    Eg.:
+    is_origin_allowed("https://forkdelta.github.io") => True
+    is_origin_allowed("https://forkdelta.com/") => True
+    is_origin_allowed("https://api.forkdelta.com/") => True
+    is_origin_allowed("file://") => False
+    is_origin_allowed("https://forkdelta.bs/") => False
+    is_origin_allowed("https://forkscamster.github.io/") => False
+    """
+
+    parsed = urlparse(origin)
+    if parsed.scheme in ('http', 'https'):
+        return isinstance(parsed.hostname, str) and any([
+            parsed.hostname.endswith(suffix)
+            for suffix in ALLOWED_ORIGIN_SUFFIXES
+        ])
+    elif parsed.scheme == "file":
+        return True
+    return False
+
 @sio.on('connect')
 def connect(sid, environ):
     logger.debug("connect %s", sid)
+    if "HTTP_ORIGIN" in environ and not is_origin_allowed(environ["HTTP_ORIGIN"]):
+        logger.info("Connection denied: Origin %s not allowed, environ=%s", environ["HTTP_ORIGIN"], environ)
+        return False
 
 def format_trade(trade):
     contract_give = ERC20Token(trade["token_give"])

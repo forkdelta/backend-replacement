@@ -275,8 +275,8 @@ async def get_tickers():
         return await conn.fetch("""
             SELECT *
             FROM tickers
-            ORDER BY token_address
-            """)
+            WHERE token_address != $1
+            """, ZERO_ADDR_BYTES)
 
 def ticker_key(ticker):
     return "{}_{}".format("ETH", Web3.toHex(ticker["token_address"])[:9])

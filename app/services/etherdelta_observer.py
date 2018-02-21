@@ -16,6 +16,8 @@ from time import time
 from ..src.utils import parse_insert_status
 from web3 import Web3
 from websockets.exceptions import ConnectionClosed, InvalidStatusCode
+from ..src.order_message_validator import OrderMessageValidatorEtherdelta
+from ..src.order_signature import order_signature_valid
 
 logger = logging.getLogger('etherdelta_observer')
 logger.setLevel(logging.DEBUG)
@@ -41,14 +43,40 @@ async def on_error(io_client, event, error):
 async def on_disconnect(io_client, event):
     logger.info("ED API client disconnected from %s", io_client.ws_url)
 
+
+
+import warnings
+from functools import wraps
+
+
 async def process_orders(orders):
     not_deleted_filter = lambda order: "deleted" not in order or not order["deleted"]
     logger.info("Processing %i orders", len(orders))
     orders = list(filter(not_deleted_filter, orders))
     logger.debug("Filtered orders: %i", len(orders))
-
+    v = OrderMessageValidatorEtherdelta()
+    warnings.filterwarnings("ignore", category=DeprecationWarning)     
+    current_block = web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order (todo copied from websocket_server.py)
     for order in orders:
         try:
+            if not v.validate(order):
+                error_msg = "Invalid message format"
+                details_dict = dict(data=order, errors=v.errors)
+                logger.warning("ED order rejected: %s: %s", error_msg, details_dict)
+                continue
+            else:
+                order_validated = v.document # Get data with validated and coerced values
+
+            if order_validated["expires"] <= current_block:
+                error_msg = "Cannot post order because it has already expired"
+                details_dict = { "blockNumber": current_block, "expires": order["expires"], "date": datetime.utcnow() }
+                logger.warning("ED Order rejected: %s: %s", error_msg, details_dict)
+                continue
+
+            if not order_signature_valid(order_validated):
+                logger.warning("ED Order rejected: Invalid signature: order = %s", order)
+                continue
+
             await record_order(order)
         except Exception as e:
             logger.critical("Error while processing order '%s'", order)

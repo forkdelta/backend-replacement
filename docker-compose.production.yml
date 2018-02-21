@@ -13,6 +13,9 @@ services:
   huey_consumer:
     restart: on-failure
 
+  ticker:
+    restart: on-failure
+
   websocket_server:
     environment:
       LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}

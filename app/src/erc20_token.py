@@ -19,12 +19,18 @@ class ERC20Token:
     def normalize_value(self, value):
         if not isinstance(value, Decimal):
             value = Decimal(value)
-        return value * Decimal(10 ** self.decimals)
+        if value != 0:
+            return value * Decimal(10.0 ** self.decimals)
+        else:
+            return value
 
     def denormalize_value(self, value):
         if not isinstance(value, Decimal):
             value = Decimal(value)
-        return value * Decimal(10.0 ** -self.decimals)
+        if value != 0:
+            return value * Decimal(10.0 ** -self.decimals)
+        else:
+            return value
 
     @property
     def decimals(self):

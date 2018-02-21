@@ -45,10 +45,6 @@ async def on_disconnect(io_client, event):
 
 
 
-import warnings
-from functools import wraps
-
-
 async def process_orders(orders):
     not_deleted_filter = lambda order: "deleted" not in order or not order["deleted"]
     logger.info("Processing %i orders", len(orders))

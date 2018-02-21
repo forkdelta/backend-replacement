@@ -16,6 +16,8 @@ from time import time
 from ..src.utils import parse_insert_status
 from web3 import Web3
 from websockets.exceptions import ConnectionClosed, InvalidStatusCode
+from ..src.order_message_validator import OrderMessageValidatorEtherdelta
+from ..src.order_signature import order_signature_valid
 
 logger = logging.getLogger('etherdelta_observer')
 logger.setLevel(logging.DEBUG)
@@ -41,10 +43,40 @@ async def on_error(io_client, event, error):
 async def on_disconnect(io_client, event):
     logger.info("ED API client disconnected from %s", io_client.ws_url)
 
+def validate_order(order, current_block=None):
+    """
+    Validates an order dictionary. Returns True if the order is valid, False otherwise.
+    """
+
+    v = OrderMessageValidatorEtherdelta()
+    if not v.validate(order):
+        error_msg = "Invalid message format"
+        details_dict = dict(data=order, errors=v.errors)
+        logger.warning("ED order rejected: %s: %s", error_msg, details_dict)
+        return False
+
+    order_validated = v.document # Get data with validated and coerced values
+
+    if current_block and order_validated["expires"] <= current_block:
+        error_msg = "Cannot record order because it has already expired"
+        details_dict = { "blockNumber": current_block, "expires": order["expires"], "date": datetime.utcnow() }
+        logger.warning("ED Order rejected: %s: %s", error_msg, details_dict)
+        return False
+
+    if not order_signature_valid(order_validated):
+        logger.warning("ED Order rejected: Invalid signature: order = %s", order)
+        return False
+    return True
+
+from functools import partial
 async def process_orders(orders):
+    current_block = web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order (todo copied from websocket_server.py)
+
     not_deleted_filter = lambda order: "deleted" not in order or not order["deleted"]
+    invalid_orders_filter = partial(validate_order, current_block=current_block)
+
     logger.info("Processing %i orders", len(orders))
-    orders = list(filter(not_deleted_filter, orders))
+    orders = list(filter(invalid_orders_filter, filter(not_deleted_filter, orders)))
     logger.debug("Filtered orders: %i", len(orders))
 
     for order in orders:

@@ -459,7 +459,7 @@ async def handle_order(sid, data):
     current_block = App().web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order
     if message["expires"] <= current_block:
         error_msg = "Cannot post order because it has already expired"
-        details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow() }
+        details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow().isoformat() }
         logger.warning("Order rejected: %s: %s", error_msg, details_dict)
         await sio.emit("messageResult", [422, error_msg, details_dict], room=sid)
         return

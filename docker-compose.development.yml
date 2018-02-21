@@ -18,6 +18,10 @@ services:
     volumes:
       - .:/usr/src/app
 
+  ticker:
+    volumes:
+      - .:/usr/src/app
+
   websocket_server:
     ports:
       - "8080:8080"

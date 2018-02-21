@@ -14,6 +14,7 @@ from ..src.order_enums import OrderState
 
 sio = socketio.AsyncServer()
 app = web.Application()
+routes = web.RouteTableDef()
 sio.attach(app)
 
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
@@ -22,9 +23,39 @@ ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
 logger = logging.getLogger('websocket_server')
 logger.setLevel(logging.DEBUG)
 
+ALLOWED_ORIGIN_SUFFIXES = ('forkdelta.com', 'forkdelta.github.io', 'deltabalances.github.io', 'localhost', 'devd.io')
+from urllib.parse import urlparse
+def is_origin_allowed(origin):
+    """
+    Returns True if the origin has hostname suffix in the allowed origins list.
+    Additionally, returns True if the origin has `file` scheme.
+    Otherwise, returns False.
+
+    Eg.:
+    is_origin_allowed("https://forkdelta.github.io") => True
+    is_origin_allowed("https://forkdelta.com/") => True
+    is_origin_allowed("https://api.forkdelta.com/") => True
+    is_origin_allowed("file://") => False
+    is_origin_allowed("https://forkdelta.bs/") => False
+    is_origin_allowed("https://forkscamster.github.io/") => False
+    """
+
+    parsed = urlparse(origin)
+    if parsed.scheme in ('http', 'https'):
+        return isinstance(parsed.hostname, str) and any([
+            parsed.hostname.endswith(suffix)
+            for suffix in ALLOWED_ORIGIN_SUFFIXES
+        ])
+    elif parsed.scheme == "file":
+        return True
+    return False
+
 @sio.on('connect')
 def connect(sid, environ):
     logger.debug("connect %s", sid)
+    if "HTTP_ORIGIN" in environ and not is_origin_allowed(environ["HTTP_ORIGIN"]):
+        logger.info("Connection denied: Origin %s not allowed, environ=%s", environ["HTTP_ORIGIN"], environ)
+        return False
 
 def format_trade(trade):
     contract_give = ERC20Token(trade["token_give"])
@@ -269,13 +300,54 @@ def format_order(record):
 
     return response
 
+async def get_tickers():
+    async with App().db.acquire_connection() as conn:
+        return await conn.fetch("""
+            SELECT *
+            FROM tickers
+            WHERE token_address != $1
+            """, ZERO_ADDR_BYTES)
+
+def ticker_key(ticker):
+    """
+    Given a ticker record, returns a ticker dictionary key.
+
+    The key consists of base name (currently, ETH), an underscore, and 9
+    first characters of the contract address.
+    """
+    return "{}_{}".format("ETH", Web3.toHex(ticker["token_address"])[:9])
+
+def format_ticker(ticker):
+    return dict(
+        tokenAddr=Web3.toHex(ticker["token_address"]),
+        quoteVolume=str(ticker["quote_volume"]).lower(),
+        baseVolume=str(ticker["base_volume"]).lower(),
+        last=str(ticker["last"]).lower() if ticker["last"] else None,
+        bid=str(ticker["bid"]).lower() if ticker["bid"] else None,
+        ask=str(ticker["ask"]).lower() if ticker["ask"] else None,
+        updated=ticker["updated"].isoformat()
+    )
+
+def format_tickers(tickers):
+    return {
+        ticker_key(ticker): format_ticker(ticker)
+        for ticker in tickers
+    }
+
+@routes.get('/returnTicker')
+async def http_return_ticker(request):
+    return web.json_response(format_tickers(await get_tickers()))
+
 @sio.on('getMarket')
 async def get_market(sid, data):
     current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
 
-    response = dict(returnTicker={})
+    response = {
+        "returnTicker": format_tickers(await get_tickers())
+    }
+
     if token:
         trades = await get_trades(token)
         orders_buys = await get_orders(ZERO_ADDR, token,
@@ -387,7 +459,7 @@ async def handle_order(sid, data):
     current_block = App().web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order
     if message["expires"] <= current_block:
         error_msg = "Cannot post order because it has already expired"
-        details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow() }
+        details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow().isoformat() }
         logger.warning("Order rejected: %s: %s", error_msg, details_dict)
         await sio.emit("messageResult", [422, error_msg, details_dict], room=sid)
         return
@@ -414,6 +486,7 @@ async def handle_order(sid, data):
 def disconnect(sid):
     logger.debug('disconnect %s', sid)
 
+app.router.add_routes(routes)
 if __name__ == "__main__":
     sio.start_background_task(stream_updates)
     web.run_app(app)

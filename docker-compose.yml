@@ -52,6 +52,21 @@ services:
     command: >
       huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
 
+  ticker:
+    image: forkdelta/backend
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+    links:
+      - postgres
+    command: >
+      python3 -m app.services.ticker
+
   websocket_server:
     image: forkdelta/backend
     build: .

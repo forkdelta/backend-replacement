@@ -20,7 +20,7 @@ ORDER_MESSAGE_SCHEMA = {
     "contractAddr": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address },
     "tokenGet": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address },
     "amountGet": { "type": "integer", "required": True, "coerce": str_to_decimal_to_int, "min": 1 },
-    "tokenGive": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address, "not_equal": "tokenGet" }, 
+    "tokenGive": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address },
     "amountGive": { "type": "integer", "required": True, "coerce": str_to_decimal_to_int, "min": 1 },
     "expires": { "type": "integer", "required": True, "coerce": Web3.toInt, "min": 0 },
     "nonce": { "type": "integer", "required": True, "coerce": Web3.toInt, "min": 0 },
@@ -33,7 +33,7 @@ ORDER_MESSAGE_SCHEMA = {
 ORDER_MESSAGE_SCHEMA_ETHERDELTA = {
     "tokenGet": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address },
     "amountGet": { "type": "integer", "required": True, "coerce": str_to_decimal_to_int, "min": 1 },
-    "tokenGive": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address,  "not_equal": "tokenGet" },
+    "tokenGive": { "type": "string", "required": True, "coerce": to_normalized_address, "validator": validate_0x_prefixed_hex_address },
     "amountGive": { "type": "integer", "required": True, "coerce": str_to_decimal_to_int, "min": 1 },
     "expires": { "type": "integer", "required": True, "coerce": Web3.toInt, "min": 0 },
     "nonce": { "type": "integer", "required": True, "coerce": Web3.toInt, "min": 0 },
@@ -46,15 +46,6 @@ ORDER_MESSAGE_SCHEMA_ETHERDELTA = {
 class OrderMessageValidatorBase(cerberus.Validator):
     def __init__(self, schema, *args, **kwargs):
         super().__init__(schema, *args, **kwargs)
-    
-    def _validate_not_equal(self, other, field, value):
-        """Validates that the value of field does not equal the value of other
-        """        
-        if other not in self.document:
-            return False
-        if value == self.document[other]:
-            self._error(field, 
-                        "Field is not allowed to have same value as %s." % other)
 
 class OrderMessageValidator(OrderMessageValidatorBase):
     def __init__(self, *args, **kwargs):

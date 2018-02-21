@@ -51,7 +51,7 @@ async def process_orders(orders):
     orders = list(filter(not_deleted_filter, orders))
     logger.debug("Filtered orders: %i", len(orders))
     v = OrderMessageValidatorEtherdelta()
-    warnings.filterwarnings("ignore", category=DeprecationWarning)     
+
     current_block = web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order (todo copied from websocket_server.py)
     for order in orders:
         try:

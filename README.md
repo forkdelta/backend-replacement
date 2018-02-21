@@ -9,6 +9,10 @@ This repository hosts the source code of ForkDelta backend. The backend provides
 
 Best way to learn about a system is to read the source code. Start with a look at [docker-compose.yml](docker-compose.yml).
 
+## API
+
+For information and documentation on ForkDelta's API, look here: https://github.com/forkdelta/backend-replacement/docs/api
+
 ## Developing
 
 ### Setting up a development environment

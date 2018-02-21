@@ -102,7 +102,7 @@ async def get_trades(token_hexstr, user_hexstr=None):
             FROM trades
             WHERE {}
             ORDER BY block_number DESC, date DESC
-            LIMIT 300
+            LIMIT 100
             """.format(where),
             *placeholder_args)
 
@@ -138,7 +138,7 @@ async def get_transfers(token_hexstr, user_hexstr):
             FROM transfers
             WHERE "user" = $1 AND ("token" = $2 OR "token" = $3)
             ORDER BY block_number DESC, date DESC
-            LIMIT 300
+            LIMIT 100
             """,
             Web3.toBytes(hexstr=user_hexstr),
             Web3.toBytes(hexstr=token_hexstr),
@@ -188,7 +188,7 @@ async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expi
             FROM orders
             WHERE {}
             ORDER BY {}
-            LIMIT 500
+            LIMIT 100
             """.format(where, ", ".join(order_by)),
             *placeholder_args)
 

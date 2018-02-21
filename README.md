@@ -11,7 +11,7 @@ Best way to learn about a system is to read the source code. Start with a look a
 
 ## API
 
-For information and documentation on ForkDelta's API, look here: https://github.com/forkdelta/backend-replacement/docs/api
+For information and documentation on ForkDelta's API, look here: https://github.com/forkdelta/backend-replacement/tree/master/docs/api
 
 ## Developing
 

@@ -6,6 +6,7 @@ from datetime import datetime
 from web3 import Web3
 
 from ..app import App
+from app.src.contract_event_utils import block_timestamp
 from ..src.order_enums import OrderSource, OrderState
 from ..src.order_hash import make_order_hash
 from ..src.utils import parse_insert_status

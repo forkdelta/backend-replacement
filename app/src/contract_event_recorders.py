@@ -155,7 +155,7 @@ async def record_cancel(contract, event_name, event):
     if "r" in order and order["r"] is not None:
         source = OrderSource.OFFCHAIN
     else:
-        source = OrderSource.ONCHANIN
+        source = OrderSource.ONCHAIN
 
     upsert_args = (
         source.name,
@@ -183,10 +183,62 @@ async def record_cancel(contract, event_name, event):
 
     return bool(did_upsert)
 
-def record_order(event_name, event):
-    print("record_order", event)
-    pass
+# On Order event, record the order, then schedule a job to update potentially affected orders.
+async def process_order(contract, event_name, event):
+    
+    order = event["args"]
+    order_maker = order["user"]
+    signature = make_order_hash(order)
 
-def record_cancel(event_name, event):
-    # print("record_cancel", event)
-    pass
+    logger.debug("received order sig=%s", signature)
+    did_insert = await record_order(contract, event_name, event)
+
+    if did_insert:
+        logger.info("recorded order sig=%s", signature)
+            
+        update_order_by_signature(signature)
+    else:
+        logger.debug("duplicate order sig=%s", signature)
+
+# This is sort of duplicated in src/record_order. Is there a better way to do this?
+INSERT_ORDER_STMT = """
+    INSERT INTO orders
+    (
+        "source", "signature",
+        "token_give", "amount_give", "token_get", "amount_get", "available_volume",
+        "expires", "nonce", "user", "state", "v", "r", "s", "date"
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
+"""
+def record_order(contract, event_name, event):
+    order = event["args"]
+    signature = make_order_hash(order)
+    date = datetime.fromtimestamp(block_timestamp(App().web3, event["blockNumber"]), tz=None)
+    
+    if "r" in order and order["r"] is not None:
+        source = OrderSource.OFFCHAIN
+    else:
+        source = OrderSource.ONCHAIN
+    
+    insert_args = (
+        source.name,
+        Web3.toBytes(hexstr=signature),
+        Web3.toBytes(hexstr=order["tokenGive"]),
+        order["amountGive"],
+        Web3.toBytes(hexstr=order["tokenGet"]),
+        order["amountGet"],
+        order["expires"],
+        order["nonce"],
+        Web3.toBytes(hexstr=order["user"]),
+        OrderState.OPEN.name,
+        order["v"],
+        order["r"],
+        order["s"],
+        date
+    )
+
+    async with App().db.acquire_connection() as connection:
+        insert_retval = await connection.execute(INSERT_ORDER_STMT, *insert_args)
+        _, _, did_insert = parse_insert_status(insert_retval)
+    return did_insert

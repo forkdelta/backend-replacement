@@ -19,7 +19,7 @@ filter_set = WebsocketFilterSet(contract)
 filter_set.on_event('Trade', process_trade)
 filter_set.on_event('Deposit', record_deposit)
 filter_set.on_event('Withdraw', record_withdraw)
-filter_set.on_event('Order', record_order)
+filter_set.on_event('Order', process_order)
 filter_set.on_event('Cancel', record_cancel)
 
 def make_eth_subscribe(topic_filter):

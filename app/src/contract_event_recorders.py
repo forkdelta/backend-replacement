@@ -182,3 +182,11 @@ async def record_cancel(contract, event_name, event):
         logger.debug("recorded order cancel signature=%s", signature)
 
     return bool(did_upsert)
+
+def record_order(event_name, event):
+    print("record_order", event)
+    pass
+
+def record_cancel(event_name, event):
+    # print("record_cancel", event)
+    pass

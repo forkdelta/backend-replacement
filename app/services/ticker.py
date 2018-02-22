@@ -38,10 +38,11 @@ async def get_trades_volume(token_hexstr):
                 COALESCE(SUM(CASE WHEN "token_get" = $1 THEN "amount_give" ELSE "amount_get" END), 0) AS quote_volume,
                 COALESCE(SUM(CASE WHEN "token_get" = $1 THEN "amount_get" ELSE "amount_give" END), 0) AS base_volume
             FROM trades
-            WHERE ("token_give" = $2 OR "token_get" = $2)
+            WHERE (("token_get" = $1 AND "token_give" = $2)
+                    OR ("token_give" = $1 AND "token_get" = $2))
                 AND "date" >= NOW() - '1 day'::INTERVAL
             """,
-            Web3.toBytes(hexstr=ZERO_ADDR), # TODO: We can probably do with just token address
+            Web3.toBytes(hexstr=ZERO_ADDR),
             Web3.toBytes(hexstr=token_hexstr))
 
 async def get_last_trade(token_hexstr):
@@ -53,11 +54,14 @@ async def get_last_trade(token_hexstr):
         return await conn.fetchrow("""
             SELECT *
             FROM trades
-            WHERE ("token_give" = $1 OR "token_get" = $1)
+            WHERE (("token_get" = $1 AND "token_give" = $2)
+                    OR ("token_give" = $1 AND "token_get" = $2))
                 AND ("amount_get" > 0 AND "amount_give" > 0)
             ORDER BY "date" DESC
             LIMIT 1
-            """, Web3.toBytes(hexstr=token_hexstr))
+            """,
+            Web3.toBytes(hexstr=ZERO_ADDR),
+            Web3.toBytes(hexstr=token_hexstr))
 
 async def get_market_spread(token_hexstr, current_block):
     """

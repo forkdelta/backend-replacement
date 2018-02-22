@@ -21,7 +21,7 @@ INSERT_ORDER_STMT = """
     VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
 """
-async def record_order(order):
+async def record_order(order, block_number=0):
     signature = make_order_hash(order)
     
     if "r" in order and order["r"] is not None:
@@ -29,7 +29,7 @@ async def record_order(order):
         date = datetime.utcnow()
     else:
         source = OrderSource.ONCHAIN
-        date = datetime.fromtimestamp(block_timestamp(App().web3, event["blockNumber"]), tz=None)
+        date = datetime.fromtimestamp(block_timestamp(App().web3, block_number), tz=None)
     
     insert_args = (
         source.name,

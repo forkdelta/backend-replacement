@@ -192,7 +192,7 @@ async def process_order(contract, event_name, event):
     signature = make_order_hash(order)
 
     logger.debug("received order sig=%s", signature)
-    did_insert = await record_order(order)
+    did_insert = await record_order(order, event["blockNumber"])
 
     if did_insert:
         logger.info("recorded order sig=%s", signature)

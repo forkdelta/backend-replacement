@@ -51,7 +51,6 @@ class OrderMessageValidator(OrderMessageValidatorBase):
     def __init__(self, *args, **kwargs):
         super().__init__(ORDER_MESSAGE_SCHEMA, *args, **kwargs)
 
-
 class OrderMessageValidatorEtherdelta(OrderMessageValidatorBase):
     def __init__(self, *args, **kwargs):
         super().__init__(ORDER_MESSAGE_SCHEMA_ETHERDELTA, *args, **kwargs)

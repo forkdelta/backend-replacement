@@ -63,14 +63,16 @@ def validate_order(order, current_block=None):
         logger.warning("ED order rejected: %s", error_msg)
         return
 
+    # Require order to be non-expired
     if current_block and order_validated["expires"] <= current_block:
         error_msg = "Cannot record order because it has already expired"
-        details_dict = { "blockNumber": current_block, "expires": order["expires"], "date": datetime.utcnow() }
+        details_dict = { "blockNumber": current_block, "expires": order_validated["expires"], "date": datetime.utcnow().isoformat() }
         logger.warning("ED Order rejected: %s: %s", error_msg, details_dict)
         return False
 
+    # Require a valid signature
     if not order_signature_valid(order_validated):
-        logger.warning("ED Order rejected: Invalid signature: order = %s", order)
+        logger.warning("ED Order rejected: Invalid signature: raw_order = %s, order = %s", order, order_validated)
         return False
     return True
 

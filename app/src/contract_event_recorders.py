@@ -137,13 +137,13 @@ UPSERT_CANCELED_ORDER_STMT = """
     (
         "source", "signature",
         "token_give", "amount_give", "token_get", "amount_get",
-        "expires", "nonce", "user", "state", "v", "r", "s", "date",
-        "amount_fill", "updated"
+        "expires", "nonce", "user", "state", "date",
+        "amount_fill", "updated", "available_volume"
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT ON CONSTRAINT index_orders_on_signature
         DO UPDATE SET
-            "state" = $10, "amount_fill" = $15, "updated" = $16
+            "state" = $10, "amount_fill" = $12, "available_volume" = $14, "updated" = $13
             WHERE "orders"."signature" = $2
                 AND "orders"."state" = 'OPEN'::orderstate
 """
@@ -168,12 +168,10 @@ async def record_cancel(contract, event_name, event):
         order["nonce"],
         Web3.toBytes(hexstr=order["user"]),
         OrderState.CANCELED.name,
-        int(order["v"]),
-        Web3.toBytes(text=order["r"]),
-        Web3.toBytes(text=order["s"]),
         date,
         order["amountGet"], # Contract updates orderFills to amountGet when trade is cancelled
-        date
+        date,
+        0 # Cancelled = 0 volume available
     )
 
     async with App().db.acquire_connection() as connection:

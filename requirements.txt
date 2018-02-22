@@ -1,6 +1,7 @@
 ##
 # Web3
-web3 ~= 3.16.4
+web3==3.16.4
+eth_utils==0.7.4
 
 ##
 # Sockets
@@ -10,7 +11,7 @@ yarl==0.18.0
 websockets~=4.0.1
 # Socket.IO server to provide a WS API, backed by aiohttp for HTTP long-polling support
 python-socketio~=1.8.4
-aiohttp~=2.3.7
+aiohttp==2.3.7
 
 ##
 # DB
@@ -20,3 +21,23 @@ asyncpg==0.14.0
 alembic==0.9.6
 # For use with alembic
 psycopg2~=2.7.3.2
+
+##
+# Queue
+huey[backends]~=1.7.0
+# For use with huey's redis backend
+redis~=2.10.6
+# Use greenlets for huey: our tasks are mostly I/O bound
+gevent
+
+
+##
+# Data tools
+# A data object validation tool:
+cerberus==1.1
+
+##
+# Crypto tools
+# ecrecover support:
+coincurve>=7.0.0
+rlp>=0.4.7

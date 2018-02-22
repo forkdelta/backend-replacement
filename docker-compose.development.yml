@@ -1,0 +1,29 @@
+##
+# This docker-compose file extends the default docker-compose.yml with
+# development settings.
+# Use
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml
+# in your .env file to apply these overrides.
+version: '2'
+services:
+  contract_observer:
+    volumes:
+      - .:/usr/src/app
+
+  etherdelta_observer:
+    volumes:
+      - .:/usr/src/app
+
+  huey_consumer:
+    volumes:
+      - .:/usr/src/app
+
+  ticker:
+    volumes:
+      - .:/usr/src/app
+
+  websocket_server:
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/usr/src/app

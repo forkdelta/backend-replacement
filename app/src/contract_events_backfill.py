@@ -1,14 +1,14 @@
-from app import App
+from ..app import App
 import asyncio
-from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL
-from contract_event_recorders import record_cancel, record_deposit, record_order, record_trade, record_withdraw
+from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL
+from .contract_event_recorders import record_cancel, record_deposit, record_order, record_trade, record_withdraw
 import sys
 from time import time, sleep
 from web3 import Web3, HTTPProvider
 
 BLOCK_ALIASES = ("latest", "earliest", "pending")
 EVENT_HANDLERS = {
-    'Trade': record_trade,
+    'Trade': process_trade,
     'Deposit': record_deposit,
     'Withdraw': record_withdraw,
     'Order': record_order,
@@ -39,7 +39,7 @@ async def main():
             print(int(time()), block_number - block_step, block_number, total_events)
             event_filter = ed_contract.on(event_name, {'fromBlock': block_number - block_step, 'toBlock': block_number })
             for event in event_filter.get(only_changes=False):
-                await EVENT_HANDLERS[event_name](event_name, event)
+                await EVENT_HANDLERS[event_name](ed_contract, event_name, event)
                 total_events += 1
             sleep(3)
         finally:
@@ -49,5 +49,4 @@ async def main():
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(App().db.establish_connection())
     loop.run_until_complete(main())

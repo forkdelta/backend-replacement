@@ -26,11 +26,11 @@ class WebsocketFilterSet:
             if iscoroutinefunction(handler_func):
                 async def decorated(payload):
                     event_data = get_event_data(event_abi, payload)
-                    return await handler_func(event_name, event_data)
+                    return await handler_func(self.contract, event_name, event_data)
             else:
                 def decorated(payload):
                     event_data = get_event_data(event_abi, payload)
-                    return handler_func(event_name, event_data)
+                    return handler_func(self.contract, event_name, event_data)
 
             self.topic_filters.append(event_filter_params)
             self.handlers[event_filter_params["topics"][0]] = decorated

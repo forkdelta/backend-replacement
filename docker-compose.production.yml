@@ -1,0 +1,55 @@
+##
+# This docker-compose file extends the default docker-compose.yml with
+# **production** settings.
+#
+version: '2'
+services:
+  contract_observer:
+    restart: on-failure
+
+  etherdelta_observer:
+    restart: on-failure
+
+  huey_consumer:
+    restart: on-failure
+
+  ticker:
+    restart: on-failure
+
+  websocket_server:
+    environment:
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+      LETSENCRYPT_HOST: ${LETSENCRYPT_HOST}
+      VIRTUAL_HOST: ${SERVERNAME},api.${SERVERNAME}
+      VIRTUAL_PORT: "8080"
+    restart: on-failure
+
+  postgres:
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx # Need to name it in a specific way for nginx-dockergen to be able to restart it
+    ports:
+      - "443:443"
+    volumes:
+      - ./etc/nginx/conf.d:/etc/nginx/conf.d
+      - ./etc/nginx/vhost.d:/etc/nginx/vhost.d
+      - ./etc/nginx/certs:/etc/nginx/certs:ro
+      - ./etc/nginx/html:/usr/share/nginx/html
+
+  # Service that updates nginx config to point to the right service
+  # containers, whenever they change.
+  nginx-gen:
+    image: jwilder/docker-gen # also alpine, if you're wondering
+    volumes_from:
+      - nginx
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./etc/nginx/nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl:ro
+    command: >
+      -notify-sighup nginx -watch -wait 5s:30s /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
+
+volumes:
+  postgres-data:

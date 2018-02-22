@@ -1,23 +1,22 @@
-#!/usr/bin/env python
-
-from app import App
+from ..app import App
 import asyncio
-from config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
-from contract_event_recorders import record_cancel, record_deposit, record_order, record_trade, record_withdraw
-from enum import IntEnum
-from functools import partial
+from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
+from ..src.contract_event_recorders import record_cancel, record_deposit, record_order, process_trade, record_withdraw
+from ..src.contract_event_utils import block_timestamp
 import json
 import logging
-from os import environ
-from web3 import Web3, HTTPProvider
+from time import time
+from ..src.utils import coerce_to_int
 from websockets import connect
-from websocket_filter_set import WebsocketFilterSet
+from ..src.websocket_filter_set import WebsocketFilterSet
 
-web3 = Web3([])
+logger = logging.getLogger("contract_observer")
+
+web3 = App().web3
 contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
 
 filter_set = WebsocketFilterSet(contract)
-filter_set.on_event('Trade', record_trade)
+filter_set.on_event('Trade', process_trade)
 filter_set.on_event('Deposit', record_deposit)
 filter_set.on_event('Withdraw', record_withdraw)
 filter_set.on_event('Order', record_order)
@@ -28,6 +27,20 @@ def make_eth_subscribe(topic_filter):
              "params":["logs", topic_filter],
              "id":1,
              "jsonrpc":"2.0" }
+
+AVERAGE_BLOCK_TIME = 13.5
+ACCEPTABLE_LATENCY = AVERAGE_BLOCK_TIME + 5
+def log_latency(event):
+    block_ts = block_timestamp(App().web3, coerce_to_int(event["blockNumber"]))
+    latency = time() - block_ts
+    if latency < ACCEPTABLE_LATENCY:
+        logger.debug("Received event with %is latency", latency)
+    elif latency < 2 * ACCEPTABLE_LATENCY:
+        logger.info("Received event with %is latency", latency)
+    elif latency < 8 * ACCEPTABLE_LATENCY:
+        logger.warn("Received event with %is latency", latency)
+    else:
+        logger.critical("Received event with %is latency", latency)
 
 async def main():
     logger = logging.getLogger("contract_observer")
@@ -57,12 +70,14 @@ async def main():
                     logger.critical("socket timeout")
                     break
             else:
-                subscription_result = json.loads(message)["params"]["result"]
-                await filter_set.deliver(subscription_result["topics"][0], subscription_result)
+                subscription_results = json.loads(message)["params"]["result"]
+                if len(subscription_results) > 0:
+                    log_latency(subscription_results[0])
+                for subscription_result in subscription_results:
+                    await filter_set.deliver(subscription_result["topics"][0], subscription_result)
         print("Contract observer disconnected")
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(App().db.establish_connection())
     while True:
         loop.run_until_complete(main())

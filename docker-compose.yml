@@ -5,36 +5,54 @@ services:
     build: .
     depends_on:
       - postgres
+      - redis
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+      WS_PROVIDER_URL: ${WS_PROVIDER_URL}
     links:
       - postgres
-    volumes:
-      - .:/usr/src/app
+      - redis
     command: >
-      python3 contract_observer.py
-    restart: on-failure
+      python3 -m app.services.contract_observer
 
   etherdelta_observer:
     image: forkdelta/backend
     build: .
     depends_on:
       - postgres
+      - redis
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
     links:
       - postgres
-    volumes:
-      - .:/usr/src/app
+      - redis
     command: >
-      python3 etherdelta_observer.py
-    restart: on-failure
+      python3 -m app.services.etherdelta_observer
 
-  websocket_server:
+  huey_consumer:
+    image: forkdelta/backend
+    build: .
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+    links:
+      - postgres
+      - redis
+    command: >
+      huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
+
+  ticker:
     image: forkdelta/backend
     build: .
     depends_on:
@@ -43,15 +61,28 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
     links:
       - postgres
-    ports:
-      - "8080:8080"
-    volumes:
-      - .:/usr/src/app
     command: >
-      python3 websocket_server.py
-    restart: on-failure
+      python3 -m app.services.ticker
+
+  websocket_server:
+    image: forkdelta/backend
+    build: .
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+    links:
+      - postgres
+      - redis
+    command: >
+      python3 -m app.services.websocket_server
 
   postgres:
     image: postgres:10-alpine
@@ -59,3 +90,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /var/lib/postgresql/data
+
+  redis:
+    image: redis:4.0-alpine

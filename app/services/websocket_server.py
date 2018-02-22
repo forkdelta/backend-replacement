@@ -89,10 +89,10 @@ def format_trade(trade):
         }
 
 async def get_trades(token_hexstr, user_hexstr=None):
-    where = '("token_give" = $1 OR "token_get" = $1)'
-    placeholder_args = [Web3.toBytes(hexstr=token_hexstr), ]
+    where = '(("token_give" = $1 AND "token_get" = $2) OR ("token_get" = $1 AND "token_give" = $2))'
+    placeholder_args = [Web3.toBytes(hexstr=token_hexstr), ZERO_ADDR_BYTES]
     if user_hexstr:
-        where += ' AND ("addr_give" = $2 OR "addr_get" = $2)'
+        where += ' AND ("addr_give" = $3 OR "addr_get" = $3)'
         placeholder_args.append(Web3.toBytes(hexstr=user_hexstr))
 
     async with App().db.acquire_connection() as conn:
@@ -112,10 +112,11 @@ async def get_new_trades(created_after):
             """
             SELECT *
             FROM trades
-            WHERE ("date" >= $1)
+            WHERE ("date" >= $1) AND ("token_give" = $2 OR "token_get" = $2)
             ORDER BY block_number DESC, date DESC
             """,
-            created_after)
+            created_after,
+            ZERO_ADDR_BYTES)
 
 def format_transfer(transfer):
     contract = ERC20Token(transfer["token"])
@@ -207,10 +208,10 @@ async def get_updated_orders(updated_after, token_give_hexstr=None, token_get_he
     placeholder_args = [updated_after]
 
     if token_give_hexstr:
-        where += 'AND ("token_give" = $2)'
+        where += ' AND ("token_give" = $2)'
         placeholder_args.append(Web3.toBytes(hexstr=token_give_hexstr))
     elif token_get_hexstr:
-        where += 'AND ("token_get" = $2)'
+        where += ' AND ("token_get" = $2)'
         placeholder_args.append(Web3.toBytes(hexstr=token_get_hexstr))
 
     async with App().db.acquire_connection() as conn:
@@ -451,6 +452,13 @@ async def handle_order(sid, data):
     # Require new orders are posted to the latest contract
     if message["contractAddr"].lower() != ED_CONTRACT_ADDR.lower():
         error_msg = "Cannot post an order to contract {}".format(message["contractAddr"].lower())
+        logger.warning("Order rejected: %s", error_msg)
+        await sio.emit("messageResult", [422, error_msg], room=sid)
+        return
+
+    # Require one side of the order to be base currency
+    if message["tokenGet"] != ZERO_ADDR and message["tokenGive"] != ZERO_ADDR:
+        error_msg = "Cannot post order with pair {}-{}: neither is a base currency".format(message["tokenGet"], message["tokenGive"])
         logger.warning("Order rejected: %s", error_msg)
         await sio.emit("messageResult", [422, error_msg], room=sid)
         return

@@ -455,6 +455,13 @@ async def handle_order(sid, data):
         await sio.emit("messageResult", [422, error_msg], room=sid)
         return
 
+    # Require one side of the order to be base currency
+    if message["tokenGet"] != ZERO_ADDR and message["tokenGive"] != ZERO_ADDR:
+        error_msg = "Cannot post order with pair {}-{}: neither is a base currency".format(message["tokenGet"], message["tokenGive"])
+        logger.warning("Order rejected: %s", error_msg)
+        await sio.emit("messageResult", [422, error_msg], room=sid)
+        return
+
     # Require new orders to be non-expired
     current_block = App().web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order
     if message["expires"] <= current_block:

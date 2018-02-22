@@ -23,8 +23,16 @@ INSERT_ORDER_STMT = """
 """
 async def record_order(order):
     signature = make_order_hash(order)
+    
+    if "r" in order and order["r"] is not None:
+        source = OrderSource.OFFCHAIN
+        date = datetime.utcnow()
+    else:
+        source = OrderSource.ONCHAIN
+        date = datetime.fromtimestamp(block_timestamp(App().web3, event["blockNumber"]), tz=None)
+    
     insert_args = (
-        OrderSource.OFFCHAIN.name,
+        source.name,
         Web3.toBytes(hexstr=signature),
         Web3.toBytes(hexstr=order["tokenGive"]),
         order["amountGive"],
@@ -37,7 +45,7 @@ async def record_order(order):
         order["v"],
         order["r"],
         order["s"],
-        datetime.utcnow()
+        date
     )
 
     async with App().db.acquire_connection() as connection:

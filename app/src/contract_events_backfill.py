@@ -11,7 +11,7 @@ EVENT_HANDLERS = {
     'Trade': process_trade,
     'Deposit': record_deposit,
     'Withdraw': record_withdraw,
-    'Order': record_order,
+    'Order': process_order,
     'Cancel': record_cancel,
 }
 

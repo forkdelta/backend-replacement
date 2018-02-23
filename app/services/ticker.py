@@ -16,6 +16,7 @@ getcontext().prec = 8
 # TODO: finally extract these into constants
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
+FILTER_ORDERS_UNDER_ETH = 0.001
 
 tokens_queue = Queue()
 # TODO: Populate from our own DB
@@ -67,6 +68,8 @@ async def get_market_spread(token_hexstr, current_block):
     """
     Given a token address, returns the lowest ask and the highest bid.
     """
+    
+    base_contract = ERC20Token(ZERO_ADDR)
 
     async with App().db.acquire_connection() as conn:
         return await conn.fetchrow("""
@@ -78,6 +81,11 @@ async def get_market_spread(token_hexstr, current_block):
                         AND "expires" > $3
                         AND ("amount_get" > 0 AND "amount_give" > 0)
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
+                        AND (CASE WHEN "available_volume" IS NULL THEN
+                                amount_get * (amount_give / amount_get::numeric) > $4
+                            ELSE
+                                ( (available_volume * (amount_give / amount_get::numeric) > $4)
+                            END)
                     ) AS bid,
                 (SELECT MIN(amount_get / amount_give::numeric)
                     FROM orders
@@ -86,11 +94,17 @@ async def get_market_spread(token_hexstr, current_block):
                         AND "expires" > $3
                         AND ("amount_get" > 0 AND "amount_give" > 0)
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
+                        AND (CASE WHEN "available_volume" IS NULL THEN
+                                amount_give * (amount_get / amount_give::numeric) > $4
+                            ELSE
+                                available_volume * (amount_get / amount_give::numeric) > $4
+                            END)
                     ) AS ask
             """,
             ZERO_ADDR_BYTES,
             Web3.toBytes(hexstr=token_hexstr),
-            current_block)
+            current_block,
+            base_contract.normalize_value(FILTER_ORDERS_UNDER_ETH))
 
 async def save_ticker(ticker_info):
     async with App().db.acquire_connection() as conn:

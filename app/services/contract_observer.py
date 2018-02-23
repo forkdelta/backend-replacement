@@ -1,7 +1,7 @@
 from ..app import App
 import asyncio
 from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
-from ..src.contract_event_recorders import record_cancel, record_deposit, record_order, process_trade, record_withdraw
+from ..src.contract_event_recorders import record_cancel, record_deposit, process_order, process_trade, record_withdraw
 from ..src.contract_event_utils import block_timestamp
 import json
 import logging

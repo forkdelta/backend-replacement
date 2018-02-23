@@ -185,7 +185,7 @@ async def record_cancel(contract, event_name, event):
 
     return bool(did_upsert)
 
-# On Order event, record the order, then schedule a job to update potentially affected orders.
+# On Order event, record the order, then schedule a job to update the newly inserted order.
 async def process_order(contract, event_name, event):
     
     order = event["args"]

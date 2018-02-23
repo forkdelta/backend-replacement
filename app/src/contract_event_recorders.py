@@ -10,6 +10,8 @@ from app.src.order_hash import make_order_hash
 from app.src.utils import coerce_to_int, parse_insert_status
 from ..tasks.update_order import update_orders_by_maker_and_token
 
+from ..src.record_order import record_order
+
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
 logger = logging.getLogger("contract_event_recorders")
@@ -155,7 +157,7 @@ async def record_cancel(contract, event_name, event):
     if "r" in order and order["r"] is not None:
         source = OrderSource.OFFCHAIN
     else:
-        source = OrderSource.ONCHANIN
+        source = OrderSource.ONCHAIN
 
     upsert_args = (
         source.name,
@@ -182,3 +184,19 @@ async def record_cancel(contract, event_name, event):
         logger.debug("recorded order cancel signature=%s", signature)
 
     return bool(did_upsert)
+
+# On Order event, record the order, then schedule a job to update the newly inserted order.
+async def process_order(contract, event_name, event):
+    
+    order = event["args"]
+    signature = make_order_hash(order)
+
+    logger.debug("received order sig=%s", signature)
+    did_insert = await record_order(order, event["blockNumber"])
+
+    if did_insert:
+        logger.info("recorded order sig=%s", signature)
+            
+        update_order_by_signature(signature)
+    else:
+        logger.debug("duplicate order sig=%s", signature)

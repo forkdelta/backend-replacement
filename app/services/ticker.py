@@ -18,11 +18,10 @@ ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
 
 tokens_queue = Queue()
-# TODO: Populate from our own DB
-with open("tokens.json") as f:
-    import json
-    for token in json.load(f):
-        tokens_queue.put(token["addr"].lower())
+
+for token in App().tokens:
+    tokens_queue.put(token["addr"].lower())
+logger.info("%i tokens added to ticker queue", len(App().tokens))
 
 async def get_trades_volume(token_hexstr):
     """

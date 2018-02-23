@@ -1,6 +1,6 @@
 from ..app import App
 import asyncio
-from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
+from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS, FRONTEND_CONFIG_FILE
 from ..src.contract_event_utils import block_timestamp
 from datetime import datetime
 from decimal import Decimal
@@ -26,10 +26,10 @@ ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
 CHECK_TOKENS_PER_PONG = 2
 market_queue = Queue()
-# TODO: Populate from our own DB
-with open("tokens.json") as f:
-    for token in json.load(f):
-        market_queue.put(token["addr"].lower())
+
+for token in App().tokens:
+    market_queue.put(token["addr"].lower())
+logger.info("%i tokens added to market queue", len(App().tokens))
 
 web3 = App().web3
 contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)

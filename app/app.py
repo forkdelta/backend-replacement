@@ -3,6 +3,8 @@ import asyncpg
 import app.config as config
 from huey import RedisHuey
 import logging
+import urllib
+import json
 from os import environ
 from threading import local
 from web3 import Web3, HTTPProvider
@@ -33,6 +35,9 @@ class App:
             self.db = DB(config)
             self.huey = RedisHuey(host="redis", result_store=False)
             self.web3 = Web3(HTTPProvider(config.HTTP_PROVIDER_URL))
+            
+            fd_config=json.loads(urllib.request.urlopen(config.FRONTEND_CONFIG_FILE).read().decode('utf-8'))
+            self.tokens = fd_config['tokens']
 
         def __str__(self):
             return repr(self)

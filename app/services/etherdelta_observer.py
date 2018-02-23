@@ -1,6 +1,6 @@
 from ..app import App
 import asyncio
-from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS, FRONTEND_CONFIG_FILE
+from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
 from ..src.contract_event_utils import block_timestamp
 from datetime import datetime
 from decimal import Decimal

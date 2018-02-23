@@ -8,7 +8,7 @@ from app.src.contract_event_utils import block_timestamp
 from app.src.order_enums import OrderSource, OrderState
 from app.src.order_hash import make_order_hash
 from app.src.utils import coerce_to_int, parse_insert_status
-from ..tasks.update_order import update_orders_by_maker_and_token
+from ..tasks.update_order import update_orders_by_maker_and_token, update_order_by_signature
 
 from ..src.record_order import record_order
 
@@ -185,9 +185,10 @@ async def record_cancel(contract, event_name, event):
 
     return bool(did_upsert)
 
-# On Order event, record the order, then schedule a job to update the newly inserted order.
 async def process_order(contract, event_name, event):
-    
+    """
+    On Order event, record the order, then schedule a job to update the newly inserted order.
+    """
     order = event["args"]
     signature = make_order_hash(order)
 
@@ -196,7 +197,6 @@ async def process_order(contract, event_name, event):
 
     if did_insert:
         logger.info("recorded order sig=%s", signature)
-            
         update_order_by_signature(signature)
     else:
         logger.debug("duplicate order sig=%s", signature)

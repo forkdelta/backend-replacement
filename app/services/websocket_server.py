@@ -245,8 +245,8 @@ def format_order(record):
 
         # Signature: null on on-chain orders
         "v": record["v"],
-        "r": Web3.toHex(record["r"]),
-        "s": Web3.toHex(record["s"]),
+        "r": Web3.toHex(record["r"]) if record["r"] else None,
+        "s": Web3.toHex(record["s"]) if record["s"] else None,
 
         "date": record["date"].isoformat(),
         "updated": (record["updated"] or record["date"]).isoformat()

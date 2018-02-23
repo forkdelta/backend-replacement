@@ -111,6 +111,6 @@ def order_as_args(order):
         Web3.toInt(order["expires"]),
         Web3.toInt(order["nonce"]),
         Web3.toHex(order["user"]),
-        order["v"] or 0,
-        order["r"] or EMPTY_BYTES32,
-        order["s"] or EMPTY_BYTES32)
+        order.get("v", 0),
+        order.get("r", EMPTY_BYTES32),
+        order.get("s", EMPTY_BYTES32))

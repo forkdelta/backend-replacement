@@ -59,7 +59,6 @@ class App:
 
 
         def tokens(self):
-            self.logger.debug("Fetching token list.")
             n = datetime.utcnow()
             if (n - self._tokensUpdateTime).total_seconds() > 15*60:
                 self.updateTokens()

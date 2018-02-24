@@ -112,7 +112,7 @@ async def on_pong(io_client, event):
     # await io_client.emit("getMarket", { "token": ZERO_ADDR })
     for _ in range(CHECK_TOKENS_PER_PONG):
         try:
-            token = market_queue.get()
+            token = market_queue.get_nowait()
         except QueueEmpty:
             fill_queue()
             break # better luck next time!

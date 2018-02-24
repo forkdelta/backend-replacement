@@ -179,7 +179,7 @@ async def update_ticker(token_addr):
 async def main():
     while True:
         try:
-            token = tokens_queue.get()
+            token = tokens_queue.get_nowait()
         except QueueEmpty:
             fill_queue()            
         else:

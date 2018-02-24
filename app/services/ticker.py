@@ -84,7 +84,7 @@ async def get_market_spread(token_hexstr, current_block):
                         AND (CASE WHEN "available_volume" IS NULL THEN
                                 amount_get * (amount_give / amount_get::numeric) > $4
                             ELSE
-                                ( (available_volume * (amount_give / amount_get::numeric) > $4)
+                                available_volume * (amount_give / amount_get::numeric) > $4
                             END)
                     ) AS bid,
                 (SELECT MIN(amount_get / amount_give::numeric)

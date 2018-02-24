@@ -26,10 +26,13 @@ ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
 CHECK_TOKENS_PER_PONG = 2
 market_queue = Queue()
-# TODO: Populate from our own DB
-with open("tokens.json") as f:
-    for token in json.load(f):
+
+def fill_queue():
+    for token in App().tokens():
         market_queue.put(token["addr"].lower())
+    logger.info("%i tokens added to market queue", len(App().tokens()))
+
+fill_queue()
 
 web3 = App().web3
 contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
@@ -109,14 +112,14 @@ async def on_pong(io_client, event):
     # await io_client.emit("getMarket", { "token": ZERO_ADDR })
     for _ in range(CHECK_TOKENS_PER_PONG):
         try:
-            token = market_queue.get()
+            token = market_queue.get_nowait()
         except QueueEmpty:
+            fill_queue()
             break # better luck next time!
         else:
             logger.info("Query token %s", token)
             await io_client.emit("getMarket", { "token": token })
             await asyncio.sleep(4)
-            market_queue.put(token)
 
 INSERT_ORDER_STMT = """
     INSERT INTO orders

@@ -1,3 +1,4 @@
+from ..app import App
 from ..config import HTTP_PROVIDER_URL
 from decimal import Decimal
 import json
@@ -8,9 +9,8 @@ class ERC20Token:
 
     def __init__(self, addr):
         if not ERC20Token.cache:
-            with open("tokens.json") as f:
-                ERC20Token.cache = dict([(t["addr"].lower(), t["decimals"])
-                                            for t in json.load(f)])
+            ERC20Token.cache = dict([(t["addr"].lower(), t["decimals"])
+                                        for t in App().tokens()])
 
         if isinstance(addr, bytes):
             addr = Web3.toHex(addr)

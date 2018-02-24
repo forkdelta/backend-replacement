@@ -19,11 +19,12 @@ ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
 FILTER_ORDERS_UNDER_ETH = 0.001
 
 tokens_queue = Queue()
-# TODO: Populate from our own DB
-with open("tokens.json") as f:
-    import json
-    for token in json.load(f):
+def fill_queue():
+    for token in App().tokens():
         tokens_queue.put(token["addr"].lower())
+    logger.info("%i tokens added to ticker queue", len(App().tokens()))
+
+fill_queue()
 
 async def get_trades_volume(token_hexstr):
     """
@@ -191,10 +192,13 @@ async def update_ticker(token_addr):
 
 async def main():
     while True:
-        token = tokens_queue.get()
-        await update_ticker(token)
-        tokens_queue.put(token)
-        await asyncio.sleep(2.0)
+        try:
+            token = tokens_queue.get_nowait()
+        except QueueEmpty:
+            fill_queue()            
+        else:
+            await update_ticker(token)
+            await asyncio.sleep(2.0)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

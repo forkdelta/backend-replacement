@@ -10,7 +10,7 @@ class ERC20Token:
     def __init__(self, addr):
         if not ERC20Token.cache:
             ERC20Token.cache = dict([(t["addr"].lower(), t["decimals"])
-                                        for t in App().tokens])
+                                        for t in App().tokens()])
 
         if isinstance(addr, bytes):
             addr = Web3.toHex(addr)

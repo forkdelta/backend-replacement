@@ -103,6 +103,7 @@ async def update_order(order):
 
 EMPTY_BYTES32 = b'0' * 32
 def order_as_args(order):
+    order = dict(order)
     return (
         Web3.toHex(order["token_get"]),
         Web3.toInt(order["amount_get"]),

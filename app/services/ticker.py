@@ -4,19 +4,14 @@ from decimal import getcontext, InvalidOperation, DivisionByZero
 import logging
 from queue import Queue, Empty as QueueEmpty
 from web3 import Web3
-
 from ..app import App
 from ..src.erc20_token import ERC20Token
+from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES, FILTER_ORDERS_UNDER_ETH
 
 logger = logging.getLogger('services.ticker')
 logger.setLevel(logging.DEBUG)
 
 getcontext().prec = 8
-
-# TODO: finally extract these into constants
-ZERO_ADDR = "0x0000000000000000000000000000000000000000"
-ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
-FILTER_ORDERS_UNDER_ETH = 0.001
 
 tokens_queue = Queue()
 def fill_queue():

@@ -9,10 +9,9 @@ from app.src.order_enums import OrderSource, OrderState
 from app.src.order_hash import make_order_hash
 from app.src.utils import coerce_to_int, parse_insert_status
 from ..tasks.update_order import update_orders_by_maker_and_token, update_order_by_signature
+from ..constants import ZERO_ADDR
 
 from ..src.record_order import record_order
-
-ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
 logger = logging.getLogger("contract_event_recorders")
 logger.setLevel(logging.DEBUG)

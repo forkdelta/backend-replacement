@@ -18,11 +18,10 @@ from web3 import Web3
 from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 from ..src.order_message_validator import OrderMessageValidatorEtherdelta
 from ..src.order_signature import order_signature_valid
+from ..constants import ZERO_ADDR
 
 logger = logging.getLogger('etherdelta_observer')
 logger.setLevel(logging.DEBUG)
-
-ZERO_ADDR = "0x0000000000000000000000000000000000000000"
 
 CHECK_TOKENS_PER_PONG = 2
 market_queue = Queue()

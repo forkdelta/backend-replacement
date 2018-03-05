@@ -76,7 +76,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
-      COMPONENT: websocket_server
+      COMPONENT: websocket
     links:
       - postgres
       - redis

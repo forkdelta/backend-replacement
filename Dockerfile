@@ -14,8 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apk del deps
 
 COPY . /usr/src/app
-RUN chown -R app:app /usr/src/app
+RUN chown -R app:app /usr/src/app && chmod +x /usr/src/app/entrypoint.sh
 
 USER app
 
 EXPOSE 8080
+
+ENTRYPOINT ["/bin/sh", "./entrypoint.sh"]

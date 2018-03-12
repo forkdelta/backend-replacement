@@ -79,7 +79,7 @@ async def main():
                         await filter_set.deliver(subscription_result["topics"][0], subscription_result)
                 else:
                     #Geth websocket only returns one result at a time: {'address': '0x8d12a197cb00d4747a1fe03395095ce2a5cc6819', 'topics': [... }
-                    subscription_result=subscription_results
+                    subscription_result = subscription_results
                     if len(subscription_results) > 0:
                         log_latency(subscription_result)
                         await filter_set.deliver(subscription_result["topics"][0], subscription_result)

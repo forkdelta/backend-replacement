@@ -1,10 +1,7 @@
-from web3 import Web3
-
 # Eternally constant constants
 
 ZERO_ADDR = "0x0000000000000000000000000000000000000000"
-ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
-
+ZERO_ADDR_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
 # We might change our mind about these:

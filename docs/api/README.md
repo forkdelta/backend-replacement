@@ -10,6 +10,8 @@ You can connect to ForkDelta's API through this endpoint:
 
  - https://api.forkdelta.com
 
+Note: The API is limited to 6 concurrent connections and 12 "connect" events per minute (ie., client connects, closes connection, connects: 2 connect events).
+
 ## Requests
 
 There are two messages you can send to the ForkDelta websocket API:

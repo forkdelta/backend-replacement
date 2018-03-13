@@ -11,19 +11,16 @@ from ..app import App
 from ..config import ED_CONTRACT_ADDR
 from ..src.erc20_token import ERC20Token
 from ..src.order_enums import OrderState
+from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES, ALLOWED_ORIGIN_SUFFIXES
 
 sio = socketio.AsyncServer()
 app = web.Application()
 routes = web.RouteTableDef()
 sio.attach(app)
 
-ZERO_ADDR = "0x0000000000000000000000000000000000000000"
-ZERO_ADDR_BYTES = Web3.toBytes(hexstr=ZERO_ADDR)
-
 logger = logging.getLogger('websocket_server')
 logger.setLevel(logging.DEBUG)
 
-ALLOWED_ORIGIN_SUFFIXES = ('forkdelta.com', 'forkdelta.github.io', 'deltabalances.github.io', 'localhost', 'devd.io')
 from urllib.parse import urlparse
 def is_origin_allowed(origin):
     """

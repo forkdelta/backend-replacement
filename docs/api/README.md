@@ -10,7 +10,28 @@ You can connect to ForkDelta's API through this endpoint:
 
  - https://api.forkdelta.com
 
-Note: The API is limited to 6 concurrent connections and 12 "connect" events per minute (ie., client connects, closes connection, connects: 2 connect events).
+## Rate Limiting
+
+Please try to limit your calls to the API to a reasonable frequency.
+
+The API currently limits clients to 6 concurrent connections and 12 reconnects per minute per IP address. We reserve the right to adjust these without advanced notice.
+
+The API does not limit the number of `getMarket` and `order` messages the client can send at this time. Protip: subscribe to [this issue](https://github.com/forkdelta/proposals/issues/11) to get updates on when that changes.
+
+Clients that violate rate limits repeatedly may be blocked.
+
+## Best Practices
+### Identify your client
+Make sure to set a custom User Agent for your ForkDelta API client whenever possible. The User Agent string should include the name and version of the client, as well as the client's homepage URL and author's contact (email), like so:
+
+```
+ForkDelta Price Alerts by freeatnet (v0.1.5 (8b0aad6)) (https://project-homepage.com, freeatnet@freeatnet.com)
+```
+
+A custom User Agent string will allow us to reach out to you in case of any issues and will help us debug issues if you reach out for support.
+
+### Backoff on errors
+If you receive a one-off disconnect from the server, you may reconnect right away. However, if you receive multiple disconnects or receive errors when attempting to connect (HTTP statuses >=400), you must delay your next connection attempt. We recommend randomized [exponential backoff](https://en.wikipedia.org/wiki/Exponential_backoff) strategy: `retry_delay = min(((2^n)+random_number_milliseconds), 128)`, where `n` is the retry attempt count, starting at 0.
 
 ## Requests
 

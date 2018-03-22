@@ -223,11 +223,20 @@ New trades will be emitted as they occur. The data structure of this `trades` ev
 New deposits and withdrawals will be emitted as they occur. The data structure of this `funds` event mirrors that of `market.myFunds` outlined above.
 
 
----
+# API Client Libraries
 
-## More Information
+Below is a (possibly incomplete) list of third-party libraries that can help you work with ForkDelta API:
+
+* **PHP:** [forkdelta-api-wrapper](https://github.com/chetcuti/forkdelta-api-wrapper) by @chetcuti
+* **Python:** [etherdelta](https://github.com/miguelmota/py-etherdelta) by @miguelmota offers ForkDelta client as an option
+
+These are third-party libraries; as such, ForkDelta has no control over them and offers no support for them. You should review their source code to make sure they are bug-free, safe, secure, and fit for your use.
+
+If you would like to add your library to this list, let us know by opening an issue.
+
+# More Information
 For more information, or to see how this websocket server works, take a look at [websocket_server.py](https://github.com/forkdelta/backend-replacement/blob/master/app/services/websocket_server.py)
 
----
+
 
 <small>Special thanks to Zack for his original API and documentation: https://github.com/etherdelta/etherdelta.github.io/blob/master/docs/API.md</small>

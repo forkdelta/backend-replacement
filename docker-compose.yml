@@ -12,11 +12,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
       WS_PROVIDER_URL: ${WS_PROVIDER_URL}
+      COMPONENT: contract_observer
+      MIGRATION: head
     links:
       - postgres
       - redis
-    command: >
-      python3 -m app.services.contract_observer
 
   etherdelta_observer:
     image: forkdelta/backend
@@ -29,11 +29,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+      COMPONENT: etherdelta_observer
     links:
       - postgres
       - redis
-    command: >
-      python3 -m app.services.etherdelta_observer
 
   huey_consumer:
     image: forkdelta/backend
@@ -46,11 +45,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+      HUEY_CONCURRENCY: ${HUEY_CONCURRENCY}
+      COMPONENT: huey_consumer
     links:
       - postgres
       - redis
-    command: >
-      huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
 
   ticker:
     image: forkdelta/backend
@@ -62,10 +61,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+      COMPONENT: ticker
     links:
       - postgres
-    command: >
-      python3 -m app.services.ticker
 
   websocket_server:
     image: forkdelta/backend
@@ -78,14 +76,15 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+      COMPONENT: websocket
     links:
       - postgres
       - redis
-    command: >
-      python3 -m app.services.websocket_server
 
   postgres:
     image: postgres:10-alpine
+    ports:
+      - 5431:5432
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

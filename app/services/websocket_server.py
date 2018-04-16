@@ -362,7 +362,7 @@ async def get_market(sid, data):
     logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'))
     current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
-    user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
+    user = data["user"] if "user" in data and Web3.isAddress(data["user"]) and data["user"].lower() != ED_CONTRACT_ADDR else None
 
     response = {
         "returnTicker": format_tickers(await get_tickers())

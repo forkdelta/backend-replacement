@@ -11,7 +11,7 @@ from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES, FILTER_ORDERS_UNDER_ETH
 logger = logging.getLogger('services.ticker')
 logger.setLevel(logging.DEBUG)
 
-getcontext().prec = 8
+getcontext().prec = 10
 
 tokens_queue = Queue()
 def fill_queue():

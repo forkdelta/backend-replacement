@@ -1,6 +1,7 @@
 from aiohttp import web
 import asyncio
 from datetime import datetime
+from decimal import getcontext
 import logging
 from time import time
 import socketio
@@ -20,6 +21,8 @@ sio.attach(app)
 
 logger = logging.getLogger('websocket_server')
 logger.setLevel(logging.DEBUG)
+
+getcontext().prec = 10
 
 from urllib.parse import urlparse
 def is_origin_allowed(origin):

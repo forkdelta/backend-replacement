@@ -47,8 +47,8 @@ map $scheme $proxy_x_forwarded_ssl {
 gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
 
 log_format vhost '$host $remote_addr - $remote_user [$time_local] '
-                 '"$request" $status $body_bytes_sent '
-                 '"$http_referer" "$http_user_agent"';
+                 '"$request" $status $request_time $body_bytes_sent '
+                 '"$http_origin" "$http_user_agent"';
 
 access_log off;
 

@@ -54,9 +54,12 @@ def is_origin_allowed(origin):
         return True
     return False
 
+sid_environ = {}
+
 @sio.on('connect')
 def connect(sid, environ):
-    logger.debug("connect %s", sid)
+    logger.debug("event=connect sid=%s ip=%s", sid, environ.get('HTTP_X_REAL_IP'))
+    sid_environ[sid] = environ
     if "HTTP_ORIGIN" in environ and not is_origin_allowed(environ["HTTP_ORIGIN"]):
         logger.info("Connection denied: Origin %s not allowed, environ=%s", environ["HTTP_ORIGIN"], environ)
         return False
@@ -345,6 +348,18 @@ async def http_return_ticker(request):
 
 @sio.on('getMarket')
 async def get_market(sid, data):
+    if sid not in sid_environ:
+        logger.error("received getMarket from sid=%s, but it is not in environs", sid)
+        # Force a disconnect
+        await sio.disconnect(sid)
+        return
+
+    if not isinstance(data, dict):
+        logger.warn("event=getMarket sid=%s data='%s'", sid, data)
+        await sio.emit('exception', {"errorCode": 400, "errorMessage": "getMarket payload must be an object"}, room=sid)
+        return
+
+    logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'))
     current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) else None
@@ -443,6 +458,15 @@ async def handle_order(sid, data):
     1. Success code 202: the order has been accepted.
     2. A brief message confirming success.
     """
+
+    if sid not in sid_environ:
+        logger.error("received message from sid=%s, but it is not in environs", sid)
+        # Force a disconnect
+        await sio.disconnect(sid)
+        return
+
+    logger.debug('message %s %s', sid, sid_environ[sid].get('HTTP_X_REAL_IP'))
+
     v = OrderMessageValidator()
     if not v.validate(data):
         error_msg = "Invalid message format"
@@ -496,7 +520,8 @@ async def handle_order(sid, data):
 
 @sio.on('disconnect')
 def disconnect(sid):
-    logger.debug('disconnect %s', sid)
+    logger.debug('disconnect %s %s', sid, sid_environ[sid].get('HTTP_X_REAL_IP'))
+    del sid_environ[sid]
 
 app.router.add_routes(routes)
 if __name__ == "__main__":

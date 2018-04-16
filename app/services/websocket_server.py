@@ -9,10 +9,10 @@ from web3 import Web3
 import websockets
 
 from ..app import App
-from ..config import ED_CONTRACT_ADDR
+from ..config import ALLOWED_ORIGIN_SUFFIXES, ED_CONTRACT_ADDR
 from ..src.erc20_token import ERC20Token
 from ..src.order_enums import OrderState
-from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES, ALLOWED_ORIGIN_SUFFIXES
+from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES
 
 sio = socketio.AsyncServer()
 app = web.Application()
@@ -35,6 +35,8 @@ def is_origin_allowed(origin):
     is_origin_allowed("https://forkdelta.github.io") => True
     is_origin_allowed("https://forkdelta.com/") => True
     is_origin_allowed("https://api.forkdelta.com/") => True
+    is_origin_allowed("http://localhost:3000/") => True
+    is_origin_allowed("http://localhost:8080/") => True
     is_origin_allowed("wss://api.forkdelta.com/") => True
     is_origin_allowed("ws://localhost:3001/") => True
     is_origin_allowed("file://") => False

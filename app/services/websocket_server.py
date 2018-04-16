@@ -35,13 +35,15 @@ def is_origin_allowed(origin):
     is_origin_allowed("https://forkdelta.github.io") => True
     is_origin_allowed("https://forkdelta.com/") => True
     is_origin_allowed("https://api.forkdelta.com/") => True
+    is_origin_allowed("wss://api.forkdelta.com/") => True
+    is_origin_allowed("ws://localhost:3001/") => True
     is_origin_allowed("file://") => False
     is_origin_allowed("https://forkdelta.bs/") => False
     is_origin_allowed("https://forkscamster.github.io/") => False
     """
 
     parsed = urlparse(origin)
-    if parsed.scheme in ('http', 'https'):
+    if parsed.scheme in ('http', 'https', 'ws', 'wss'):
         return isinstance(parsed.hostname, str) and any([
             parsed.hostname.endswith(suffix)
             for suffix in ALLOWED_ORIGIN_SUFFIXES

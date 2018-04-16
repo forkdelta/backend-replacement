@@ -21,4 +21,4 @@ POSTGRES_DB = environ.get("POSTGRES_DB")
 POSTGRES_USER = environ.get("POSTGRES_USER")
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")
 
-FRONTEND_CONFIG_FILE="https://raw.githubusercontent.com/forkdelta/forkdelta.github.io/master/config/main.json"
+FRONTEND_CONFIG_FILE="https://forkdelta.github.io/config/main.json"

@@ -55,8 +55,13 @@ async def main():
             subscription_request = make_eth_subscribe(topic_filter)
             await ws.send(json.dumps(subscription_request))
             subscription_response = await ws.recv()
-            filters.append(json.loads(subscription_response)["result"])
-
+            try:
+                result = json.loads(subscription_response)["result"]
+            except (KeyError, json.JSONDecodeError) as error:
+                logger.error("Error parsing subscription response: %s", error)
+                logger.error(subscription_response)
+            else:
+                filters.append(result)
         while True:
             try:
                 message = await asyncio.wait_for(ws.recv(), timeout=20)
@@ -83,7 +88,7 @@ async def main():
                     if len(subscription_results) > 0:
                         log_latency(subscription_result)
                         await filter_set.deliver(subscription_result["topics"][0], subscription_result)
-                    
+
         print("Contract observer disconnected")
 
 if __name__ == "__main__":

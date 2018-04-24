@@ -313,8 +313,7 @@ async def get_tickers():
         return await conn.fetch("""
             SELECT *
             FROM tickers
-            WHERE token_address != $1
-            """, ZERO_ADDR_BYTES)
+            """)
 
 def ticker_key(ticker):
     """

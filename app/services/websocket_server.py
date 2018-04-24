@@ -308,12 +308,16 @@ def format_order(record):
 
     return response
 
-async def get_tickers():
-    async with App().db.acquire_connection() as conn:
-        return await conn.fetch("""
-            SELECT *
-            FROM tickers
-            """)
+tickers_cache = []
+async def get_tickers(ignore_cache=False):
+    if len(tickers_cache) == 0 or ignore_cache:
+        async with App().db.acquire_connection() as conn:
+            return await conn.fetch("""
+                SELECT *
+                FROM tickers
+                """)
+    else:
+        return tickers_cache
 
 def ticker_key(ticker):
     """
@@ -411,6 +415,20 @@ async def get_market(sid, data):
             })
 
     await sio.emit('market', response, room=sid)
+
+TICKER_UPDATE_INTERVAL = 60.0
+async def update_tickers_cache():
+    while True:
+        try:
+            tickers_cache = await get_tickers(ignore_cache=True)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            logger.exception("Exception occurred in update_tickers_cache")
+        else:
+            logger.debug("tickers cache updated")
+
+        await sio.sleep(TICKER_UPDATE_INTERVAL)
 
 STREAM_UPDATES_INTERVAL = 5.0
 async def stream_updates():
@@ -525,4 +543,5 @@ def disconnect(sid):
 app.router.add_routes(routes)
 if __name__ == "__main__":
     sio.start_background_task(stream_updates)
+    sio.start_background_task(update_tickers_cache)
     web.run_app(app)

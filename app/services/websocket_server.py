@@ -55,6 +55,7 @@ def is_origin_allowed(origin):
     return False
 
 sid_environ = {}
+current_block = App().web3.eth.blockNumber
 
 @sio.on('connect')
 def connect(sid, environ):
@@ -363,7 +364,6 @@ async def get_market(sid, data):
         return
 
     logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'))
-    current_block = App().web3.eth.getBlock("latest")["number"]
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) and data["user"].lower() != ED_CONTRACT_ADDR else None
 
@@ -509,7 +509,6 @@ async def handle_order(sid, data):
         return
 
     # Require new orders to be non-expired
-    current_block = App().web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order
     if message["expires"] <= current_block:
         error_msg = "Cannot post order because it has already expired"
         details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow().isoformat() }
@@ -540,8 +539,23 @@ def disconnect(sid):
     logger.debug('disconnect %s %s', sid, sid_environ[sid].get('HTTP_X_REAL_IP'))
     del sid_environ[sid]
 
+BLOCK_UPDATE_INTERVAL = 6.0
+async def update_current_block():
+    while True:
+        try:
+            current_block = App().web3.eth.blockNumber
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            logger.exception("Exception occurred in update_current_block")
+        else:
+            logger.debug("current_block=%i", current_block)
+
+        await sio.sleep(BLOCK_UPDATE_INTERVAL)
+
 app.router.add_routes(routes)
 if __name__ == "__main__":
     sio.start_background_task(stream_updates)
+    sio.start_background_task(update_current_block)
     sio.start_background_task(update_tickers_cache)
     web.run_app(app)

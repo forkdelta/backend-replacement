@@ -56,7 +56,7 @@ def is_origin_allowed(origin):
 
 sid_environ = {}
 
-current_block = None
+current_block = App().web3.eth.blockNumber
 def get_current_block(ignore_cache=False):
     if not current_block or ignore_cache:
         current_block = App().web3.eth.blockNumber

@@ -203,7 +203,7 @@ async def get_orders(token_give_hexstr, token_get_hexstr, user_hexstr=None, expi
             FROM orders
             WHERE {}
             ORDER BY {}
-            LIMIT 100
+            LIMIT 300
             """.format(where, ", ".join(order_by)),
             *placeholder_args)
 

@@ -55,7 +55,13 @@ def is_origin_allowed(origin):
     return False
 
 sid_environ = {}
-current_block = App().web3.eth.blockNumber
+
+current_block = None
+def get_current_block(ignore_cache=False):
+    global current_block
+    if not current_block or ignore_cache:
+        current_block = App().web3.eth.blockNumber
+    return current_block
 
 @sio.on('connect')
 def connect(sid, environ):
@@ -363,7 +369,7 @@ async def get_market(sid, data):
         await sio.emit('exception', {"errorCode": 400, "errorMessage": "getMarket payload must be an object"}, room=sid)
         return
 
-    logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s current_block=%i', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'), current_block)
+    logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s current_block=%i', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'), get_current_block())
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) and data["user"].lower() != ED_CONTRACT_ADDR else None
 
@@ -377,12 +383,12 @@ async def get_market(sid, data):
                                         state=OrderState.OPEN.name,
                                         with_available_volume=True,
                                         sort="(amount_give / amount_get) DESC",
-                                        expires_after=current_block)
+                                        expires_after=get_current_block())
         orders_sells = await get_orders(token, ZERO_ADDR,
                                         state=OrderState.OPEN.name,
                                         with_available_volume=True,
                                         sort="(amount_get / amount_give) ASC",
-                                        expires_after=current_block)
+                                        expires_after=get_current_block())
 
         response.update({
             "trades": [format_trade(trade) for trade in trades],
@@ -399,12 +405,12 @@ async def get_market(sid, data):
                                             user_hexstr=user,
                                             state=OrderState.OPEN.name,
                                             sort="(amount_give / amount_get) DESC",
-                                            expires_after=current_block)
+                                            expires_after=get_current_block())
             my_orders_sells = await get_orders(token, ZERO_ADDR,
                                             user_hexstr=user,
                                             state=OrderState.OPEN.name,
                                             sort="(amount_get / amount_give) ASC",
-                                            expires_after=current_block)
+                                            expires_after=get_current_block())
             response.update({
                 "myTrades": [format_trade(trade) for trade in my_trades],
                 "myFunds": [format_transfer(transfer) for transfer in my_funds],
@@ -509,9 +515,9 @@ async def handle_order(sid, data):
         return
 
     # Require new orders to be non-expired
-    if message["expires"] <= current_block:
+    if message["expires"] <= get_current_block():
         error_msg = "Cannot post order because it has already expired"
-        details_dict = { "blockNumber": current_block, "expires": message["expires"], "date": datetime.utcnow().isoformat() }
+        details_dict = { "blockNumber": get_current_block(), "expires": message["expires"], "date": datetime.utcnow().isoformat() }
         logger.warning("Order rejected: %s: %s", error_msg, details_dict)
         await sio.emit("messageResult", [422, error_msg, details_dict], room=sid)
         return
@@ -543,13 +549,13 @@ BLOCK_UPDATE_INTERVAL = 6.0
 async def update_current_block():
     while True:
         try:
-            current_block = App().web3.eth.blockNumber
+            get_current_block(ignore_cache=True)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception as e:
             logger.exception("Exception occurred in update_current_block")
         else:
-            logger.debug("current_block=%i", current_block)
+            logger.debug("current_block=%i", get_current_block())
 
         await sio.sleep(BLOCK_UPDATE_INTERVAL)
 

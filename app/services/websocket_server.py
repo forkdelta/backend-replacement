@@ -358,6 +358,8 @@ async def http_return_ticker(request):
 
 @sio.on('getMarket')
 async def get_market(sid, data):
+    start_time = time()
+
     if sid not in sid_environ:
         logger.error("received getMarket from sid=%s, but it is not in environs", sid)
         # Force a disconnect
@@ -369,7 +371,6 @@ async def get_market(sid, data):
         await sio.emit('exception', {"errorCode": 400, "errorMessage": "getMarket payload must be an object"}, room=sid)
         return
 
-    logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s current_block=%i', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'), get_current_block())
     token = data["token"] if "token" in data and Web3.isAddress(data["token"]) else None
     user = data["user"] if "user" in data and Web3.isAddress(data["user"]) and data["user"].lower() != ED_CONTRACT_ADDR else None
 
@@ -421,6 +422,7 @@ async def get_market(sid, data):
             })
 
     await sio.emit('market', response, room=sid)
+    logger.debug('event=getMarket sid=%s ip=%s token=%s user=%s current_block=%i duration=%f', sid, sid_environ[sid].get('HTTP_X_REAL_IP'), data.get('token'), data.get('user'), get_current_block(), time() - start_time)
 
 TICKER_UPDATE_INTERVAL = 60.0
 async def update_tickers_cache():

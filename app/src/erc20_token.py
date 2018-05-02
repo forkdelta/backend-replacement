@@ -49,7 +49,20 @@ class ERC20Token:
         method_hex = Web3.sha3(text="decimals()")[:10]
         retval = web3.eth.call({ "to": self.addr, "data": method_hex })
         if len(retval) != 66:
+            try:
+                return self._call_decimals_backup()
+            except ValueError:
+                error_msg = "Contract {} does not support method".format(self.addr) + \
+                    "`decimals()', returned '{}'".format(retval)
+                raise ValueError(error_msg)
+        return Web3.toInt(hexstr=retval)
+
+    def _call_decimals_backup(self):
+        web3 = Web3(HTTPProvider(HTTP_PROVIDER_URL))
+        method_hex = Web3.sha3(text="DECIMALS()")[:10]
+        retval = web3.eth.call({ "to": self.addr, "data": method_hex })
+        if len(retval) != 66:
             error_msg = "Contract {} does not support method".format(self.addr) + \
-                "`decimals()', returned '{}'".format(retval)
+                "`DECIMALS()', returned '{}'".format(retval)
             raise ValueError(error_msg)
         return Web3.toInt(hexstr=retval)

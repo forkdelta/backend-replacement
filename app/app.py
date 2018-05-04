@@ -23,7 +23,7 @@ class DB:
             self.config.POSTGRES_HOST,
             self.config.POSTGRES_DB)
         # Create a pool object synchronously, skip creating a connection right away
-        self.pool = asyncpg.create_pool(dsn=dsn, min_size=0)
+        self.pool = asyncpg.create_pool(dsn=dsn, min_size=0, max_size=25)
         # Declare pool initialized: async part of create_pool is noop when min_size=0
         self.pool._initialized = True
         self.acquire_connection = self.pool.acquire

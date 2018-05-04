@@ -31,8 +31,11 @@ from ..config import ALLOWED_ORIGIN_SUFFIXES, ED_CONTRACT_ADDR
 from ..src.erc20_token import ERC20Token
 from ..src.order_enums import OrderState
 from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES
+from ..lib import rapidjson
 
-sio = socketio.AsyncServer()
+sio_logger = logging.getLogger('socketio.AsyncServer')
+sio_logger.setLevel(logging.DEBUG)
+sio = socketio.AsyncServer(logger=sio_logger, json=rapidjson)
 app = web.Application()
 routes = web.RouteTableDef()
 sio.attach(app)
@@ -428,7 +431,7 @@ def format_tickers(tickers):
 
 @routes.get('/returnTicker')
 async def http_return_ticker(request):
-    return web.json_response(format_tickers(await get_tickers()))
+    return web.json_response(format_tickers(await get_tickers()), dumps=rapidjson.dumps)
 
 
 @sio.on('getMarket')

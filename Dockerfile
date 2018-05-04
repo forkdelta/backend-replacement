@@ -7,7 +7,7 @@ RUN apk --update --upgrade add --virtual deps \
       gcc python3-dev linux-headers musl-dev \
       alpine-sdk openssl-dev gmp-dev libffi-dev \
       postgresql-dev && \
-    apk --update --upgrade add --no-cache libpq gmp
+    apk --update --upgrade add --no-cache libpq gmp libstdc++
 
 COPY ./requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt

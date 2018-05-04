@@ -54,6 +54,27 @@ def is_origin_allowed(origin):
         return True
     return False
 
+def safe_list_render(records, render_func):
+    """
+    Safely render a list of records given a render_func.
+
+    Arguments:
+    - records: a list of records compatible with the formatter
+    - render_func: a function mapping records to desired format
+    Returns: a list of objects
+    """
+    import logging
+    def safe_render_func(record):
+        try:
+            return render_func(record)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            logging.exception("Exception while trying to render a record with %s", repr(render_func))
+            return None
+
+    return list(filter(None, map(safe_render_func, records)))
+
 sid_environ = {}
 
 current_block = None
@@ -238,7 +259,6 @@ async def get_updated_orders(updated_after, token_give_hexstr=None, token_get_he
             """.format(where),
             *placeholder_args)
 
-from ..tasks.update_order import update_order_by_signature
 def format_order(record):
     contract_give = ERC20Token(record["token_give"])
     contract_get = ERC20Token(record["token_get"])
@@ -392,10 +412,10 @@ async def get_market(sid, data):
                                         expires_after=get_current_block())
 
         response.update({
-            "trades": [format_trade(trade) for trade in trades],
+            "trades": safe_list_render(trades, format_trade),
             "orders": {
-                "buys": [format_order(order) for order in orders_buys],
-                "sells": [format_order(order) for order in orders_sells]
+                "buys": safe_list_render(orders_buys, format_order),
+                "sells": safe_list_render(orders_sells, format_order)
             }
         })
 
@@ -413,11 +433,11 @@ async def get_market(sid, data):
                                             sort="(amount_get / amount_give) ASC",
                                             expires_after=get_current_block())
             response.update({
-                "myTrades": [format_trade(trade) for trade in my_trades],
-                "myFunds": [format_transfer(transfer) for transfer in my_funds],
+                "myTrades": safe_list_render(my_trades, format_trade),
+                "myFunds": safe_list_render(my_funds, format_transfer),
                 "myOrders": {
-                    "buys": [format_order(order) for order in my_orders_buys],
-                    "sells": [format_order(order) for order in my_orders_sells]
+                    "buys": safe_list_render(my_orders_buys, format_order),
+                    "sells": safe_list_render(my_orders_sells, format_order)
                 }
             })
 
@@ -449,8 +469,8 @@ async def stream_updates():
         orders_sells = await get_updated_orders(updated_after, token_get_hexstr=ZERO_ADDR)
         if orders_buys or orders_sells: # Emit when there are updates only
             await sio.emit("orders", {
-                "buys": [format_order(order) for order in orders_buys],
-                "sells": [format_order(order) for order in orders_sells]
+                "buys": safe_list_render(orders_buys, format_order),
+                "sells": safe_list_render(orders_sells, format_order)
             })
 
         # Stream new trades
@@ -467,6 +487,7 @@ from ..src.order_hash import make_order_hash
 from ..src.order_message_validator import OrderMessageValidator
 from ..src.order_signature import order_signature_valid
 from ..src.record_order import record_order
+from ..tasks.update_order import update_order_by_signature
 @sio.on('message')
 async def handle_order(sid, data):
     """

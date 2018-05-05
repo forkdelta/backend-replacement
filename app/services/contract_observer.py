@@ -21,8 +21,8 @@ import asyncio
 from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
 from ..src.contract_event_recorders import record_cancel, record_deposit, process_order, process_trade, record_withdraw
 from ..src.contract_event_utils import block_timestamp
-import json
 import logging
+import rapidjson
 from time import time
 from ..src.utils import coerce_to_int
 from websockets import connect
@@ -78,11 +78,11 @@ async def main():
         filters = []
         for topic_filter in filter_set.topic_filters:
             subscription_request = make_eth_subscribe(topic_filter)
-            await ws.send(json.dumps(subscription_request))
+            await ws.send(rapidjson.dumps(subscription_request))
             subscription_response = await ws.recv()
             try:
-                result = json.loads(subscription_response)["result"]
-            except (KeyError, json.JSONDecodeError) as error:
+                result = rapidjson.loads(subscription_response)["result"]
+            except (KeyError, ValueError) as error:
                 logger.error("Error parsing subscription response: %s", error)
                 logger.error(subscription_response)
             else:
@@ -100,7 +100,7 @@ async def main():
                     logger.critical("socket timeout")
                     break
             else:
-                subscription_results = json.loads(message)["params"]["result"]
+                subscription_results = rapidjson.loads(message)["params"]["result"]
                 if isinstance(subscription_results, list):
                     #Parity websocket returns multiple result at a time: [ {'address': '0x8d12a197cb00d4747a1fe03395095ce2a5cc6819', 'topics': ... }, {'address': '0x8d ... } ]
                     if len(subscription_results) > 0:

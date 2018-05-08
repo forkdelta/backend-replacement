@@ -15,13 +15,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 import asyncio
 from functools import update_wrapper
 import logging
 from threading import get_ident, local
 
 thread_local = local()  # get a dictionary that different per-thread contents
+
+
+def get_thread_local_loop():
+    # Create an event loop if there isn't one already
+    if not hasattr(thread_local, "loop"):
+        thread_local.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(thread_local.loop)
+    return thread_local.loop
 
 
 def threaded_wrap_async(wrapped):
@@ -38,12 +45,8 @@ def threaded_wrap_async(wrapped):
     """
 
     def wrapper(*args, **kwargs):
-        # Create an event loop if there isn't one already
-        if not hasattr(thread_local, "loop"):
-            thread_local.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(thread_local.loop)
-
-        return thread_local.loop.run_until_complete(wrapped(*args, **kwargs))
+        local_loop = get_thread_local_loop()
+        return local_loop.run_until_complete(wrapped(*args, **kwargs))
 
     # Make wrapper look like the wrapped function (updating its name)
     update_wrapper(wrapper, wrapped)

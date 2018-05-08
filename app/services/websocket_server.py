@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 from aiohttp import web
 import asyncio
 from datetime import datetime
@@ -431,7 +430,12 @@ def format_tickers(tickers):
 
 @routes.get('/returnTicker')
 async def http_return_ticker(request):
-    return web.json_response(format_tickers(await get_tickers()), dumps=rapidjson.dumps)
+    return web.json_response(
+        format_tickers(await get_tickers()), dumps=rapidjson.dumps)
+
+
+from ..tasks.update_order import update_orders_by_token
+TOKEN_REFRESH_INTERVAL = 15 * 60
 
 
 @sio.on('getMarket')
@@ -455,9 +459,9 @@ async def get_market(sid, data):
             room=sid)
         return
 
-    token = data["token"] if "token" in data and Web3.isAddress(
+    token = data["token"].lower() if "token" in data and Web3.isAddress(
         data["token"]) else None
-    user = data["user"] if "user" in data and Web3.isAddress(
+    user = data["user"].lower() if "user" in data and Web3.isAddress(
         data["user"]) and data["user"].lower() != ED_CONTRACT_ADDR else None
 
     response = {"returnTicker": format_tickers(await get_tickers())}
@@ -516,7 +520,17 @@ async def get_market(sid, data):
             })
 
     await sio.emit('market', response, room=sid)
-    logger.debug(
+
+    if token:
+        freshness_token = "orderbook_fresh:{}".format(token)
+        if not (await App().aioredis.exists(freshness_token)):
+            logger.debug(
+                "orderbook for token={} requires refresh".format(token))
+            update_orders_by_token(token, get_current_block())
+            await App().aioredis.setex(freshness_token, TOKEN_REFRESH_INTERVAL,
+                                       1)
+
+    logger.info(
         'event=getMarket sid=%s ip=%s token=%s user=%s current_block=%i duration=%f',
         sid, sid_environ[sid].get('HTTP_X_REAL_IP'), token, user,
         get_current_block(),

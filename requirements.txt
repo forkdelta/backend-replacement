@@ -25,6 +25,8 @@ asyncpg==0.14.0
 alembic==0.9.6
 # For use with alembic
 psycopg2~=2.7.3.2
+# aioredis for redis usage
+aioredis~=1.1.0
 
 ##
 # Queue

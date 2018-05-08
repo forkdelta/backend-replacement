@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 from app.lib.threaded_wrap_async import threaded_wrap_async
 import asyncio
 from datetime import datetime
@@ -48,8 +47,32 @@ async def update_order_by_signature(order_signature):
 
 @huey.task()
 @threaded_wrap_async
-async def update_orders_by_maker_and_token(maker_addr, token_addr,
-                                           block_number):
+async def update_orders_by_token(token_addr, block_number=0):
+    """
+    Updates the fill of one or more orders given a token address. The token may
+    be on either side of the transactionself.
+
+    Arguments:
+    token_addr: Address of the token on either side of the order as a 0x-prefixed hex string
+    block_number: Limit updates to orders that expire after `block_number`
+    """
+    logger.debug("Update orders by token={}, expires >= {}".format(
+        token_addr, block_number))
+
+    affected_orders = await fetch_by_token(token_addr, block_number)
+    if len(affected_orders) > 0:
+        logger.debug("updating up to %i orders", len(affected_orders))
+        for order in affected_orders:
+            await update_order(order)
+    else:
+        logger.warn("No orders found for token=%s", token_addr)
+
+
+@huey.task()
+@threaded_wrap_async
+async def update_orders_by_maker_and_token(maker_addr,
+                                           token_addr,
+                                           block_number=0):
     """
     Updates the fill of one or more orders given order maker and a token. The
     token may be on either side of the transaction.
@@ -62,8 +85,8 @@ async def update_orders_by_maker_and_token(maker_addr, token_addr,
     logger.debug(
         "Update orders by maker={} and token={}, expires >= {}".format(
             maker_addr, token_addr, block_number))
-    affected_orders = await fetch_affected_orders(maker_addr, token_addr,
-                                                  block_number)
+    affected_orders = await fetch_by_maker_and_token(maker_addr, token_addr,
+                                                     block_number)
     if len(affected_orders) > 0:
         logger.debug("updating up to %i orders", len(affected_orders))
         for order in affected_orders:
@@ -87,7 +110,24 @@ async def fetch_order_by_signature(signature):
             SELECT_ORDER_STMT, Web3.toBytes(hexstr=signature))
 
 
-FETCH_AFFECTED_ORDERS_STMT = """
+FETCH_BY_TOKEN_ORDERS_STMT = """
+    SELECT *
+    FROM orders
+    WHERE ("token_give" = $1 OR "token_get" = $1)
+        AND "expires" >= $2
+        AND "state" = 'OPEN'::orderstate
+"""
+
+
+async def fetch_by_token(token_addr, expiring_at):
+    async with App().db.acquire_connection() as conn:
+        return await conn.fetch(
+            FETCH_BY_TOKEN_ORDERS_STMT,
+            Web3.toBytes(hexstr=token_addr),
+            expiring_at)
+
+
+FETCH_BY_MAKER_AND_TOKEN_ORDERS_STMT = """
     SELECT *
     FROM orders
     WHERE "user" = $1
@@ -97,12 +137,12 @@ FETCH_AFFECTED_ORDERS_STMT = """
 """
 
 
-async def fetch_affected_orders(order_maker, coin_addr, expiring_at):
+async def fetch_by_maker_and_token(order_maker, token_addr, expiring_at):
     async with App().db.acquire_connection() as conn:
         return await conn.fetch(
-            FETCH_AFFECTED_ORDERS_STMT,
+            FETCH_BY_MAKER_AND_TOKEN_ORDERS_STMT,
             Web3.toBytes(hexstr=order_maker),
-            Web3.toBytes(hexstr=coin_addr),
+            Web3.toBytes(hexstr=token_addr),
             expiring_at)
 
 

@@ -15,11 +15,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
+import aioredis
 import asyncio
 import asyncpg
 import app.config as config
 from huey import RedisHuey
+from .lib.threaded_wrap_async import get_thread_local_loop
 import logging
 from datetime import datetime
 import requests
@@ -29,18 +30,19 @@ from web3 import Web3, HTTPProvider
 
 
 class DB:
-    def __init__(self, config):
+    def __init__(self, config, loop=None):
         self.logger = logging.getLogger('App.DB')
         self.logger.setLevel(logging.DEBUG)
         self.config = config
-        self.__create_pool()
+        self.__create_pool(loop)
 
-    def __create_pool(self):
+    def __create_pool(self, loop):
         dsn = "postgres://{}:{}@{}/{}".format(
             self.config.POSTGRES_USER, self.config.POSTGRES_PASSWORD,
             self.config.POSTGRES_HOST, self.config.POSTGRES_DB)
         # Create a pool object synchronously, skip creating a connection right away
-        self.pool = asyncpg.create_pool(dsn=dsn, min_size=0, max_size=25)
+        self.pool = asyncpg.create_pool(
+            dsn=dsn, min_size=0, max_size=25, loop=loop)
         # Declare pool initialized: async part of create_pool is noop when min_size=0
         self.pool._initialized = True
         self.acquire_connection = self.pool.acquire
@@ -52,7 +54,10 @@ class App:
             self.logger = logging.getLogger('App.App')
             self.logger.setLevel(logging.DEBUG)
             self.config = config
-            self.db = DB(config)
+            self.loop = get_thread_local_loop()
+
+            self.__initialize_aioredis_pool()
+            self.db = DB(config, loop=self.loop)
             self.huey = RedisHuey(host="redis", result_store=False)
             self.web3 = Web3(HTTPProvider(config.HTTP_PROVIDER_URL))
             self._tokens = None
@@ -81,6 +86,14 @@ class App:
             if (n - self._tokensUpdateTime).total_seconds() > 15 * 60:
                 self.updateTokens()
             return self._tokens
+
+        def __initialize_aioredis_pool(self):
+            asyncio.run_coroutine_threadsafe(self.__create_aioredis_pool(),
+                                             self.loop)
+
+        async def __create_aioredis_pool(self):
+            self.aioredis = await aioredis.create_redis_pool(
+                'redis://redis', minsize=0, maxsize=10, loop=self.loop)
 
     thread_local = None
 

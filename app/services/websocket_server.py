@@ -435,7 +435,7 @@ async def http_return_ticker(request):
 
 
 from ..tasks.update_order import update_orders_by_token
-TOKEN_REFRESH_INTERVAL = 15 * 60
+TOKEN_REFRESH_INTERVAL = 4 * 60 * 60
 
 
 @sio.on('getMarket')

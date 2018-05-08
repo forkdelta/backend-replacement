@@ -1,3 +1,21 @@
+# ForkDelta Backend
+# https://github.com/forkdelta/backend-replacement
+# Copyright (C) 2018, Arseniy Ivanov and ForkDelta Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 import asyncio
 import json
 import logging
@@ -19,10 +37,12 @@ SOCKETIO_OPEN = "0"
 SOCKETIO_EVENT = "2"
 SOCKETIO_IGNORABLE = frozenset((SOCKETIO_OPEN, ))
 
+
 class SocketIOClient:
-    def __init__(self, ws_url,
-        ping_interval=ENGINEIO_PING_INTERVAL,
-        ping_timeout=ENGINEIO_PING_TIMEOUT):
+    def __init__(self,
+                 ws_url,
+                 ping_interval=ENGINEIO_PING_INTERVAL,
+                 ping_timeout=ENGINEIO_PING_TIMEOUT):
         self.ws_url = ws_url
         self.callbacks = {}
 
@@ -80,9 +100,12 @@ class SocketIOClient:
                 if "pong" in self.callbacks:
                     await self.callbacks["pong"](self, "pong")
             elif message[0] in ENGINEIO_IGNORABLE:
-                logger.debug("Ignorable engine.io type '%s' with message '%s...'", message[0], message[:65])
+                logger.debug(
+                    "Ignorable engine.io type '%s' with message '%s...'",
+                    message[0], message[:65])
             else:
-                logger.warn("Unknown engine.io type '%s' with message '%s...'", message[0], message[:65])
+                logger.warn("Unknown engine.io type '%s' with message '%s...'",
+                            message[0], message[:65])
         else:
             logger.debug("Got an empty message")
 
@@ -91,12 +114,16 @@ class SocketIOClient:
 
         while self.ws.open:
             await asyncio.sleep(ENGINEIO_PING_INTERVAL)
-            alive = (not self.last_pong) or (time() - self.last_pong < ENGINEIO_PING_INTERVAL + ENGINEIO_PING_TIMEOUT)
+            alive = (not self.last_pong) or (
+                time() - self.last_pong <
+                ENGINEIO_PING_INTERVAL + ENGINEIO_PING_TIMEOUT)
             if alive:
                 await self.ws.send(ENGINEIO_PING)
                 logger.debug("Ping sent")
             else:
-                logger.warn("Pong timeout: %i seconds since last pong, disconnect", time() - self.last_pong)
+                logger.warn(
+                    "Pong timeout: %i seconds since last pong, disconnect",
+                    time() - self.last_pong)
                 await self.ws.close()
 
     async def socketio_consumer(self, message):
@@ -106,9 +133,11 @@ class SocketIOClient:
                 logger.debug("event: '%s'", message[1:65])
                 await self.consume_socketio_event(message[1:])
             elif message[0] in SOCKETIO_IGNORABLE:
-                logger.debug("ignorable type '%s' with message '%s...'", message[0], message[:65])
+                logger.debug("ignorable type '%s' with message '%s...'",
+                             message[0], message[:65])
             else:
-                logger.warn("unknown type '%s' with message '%s...'", message[0], message[:65])
+                logger.warn("unknown type '%s' with message '%s...'",
+                            message[0], message[:65])
         else:
             logger.debug("Got an empty message")
 
@@ -126,5 +155,7 @@ class SocketIOClient:
                 logger.debug("Unhandled event '%s'", event_name)
 
     def __configure_loggers(self):
-        for (logger_name, logger_level) in (('websockets', logging.WARN), ('engineio', logging.WARN), ('socketio', logging.INFO)):
+        for (logger_name, logger_level) in (('websockets', logging.WARN),
+                                            ('engineio', logging.WARN),
+                                            ('socketio', logging.INFO)):
             logging.getLogger(logger_name).setLevel(logger_level)

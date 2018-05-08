@@ -1,3 +1,21 @@
+# ForkDelta Backend
+# https://github.com/forkdelta/backend-replacement
+# Copyright (C) 2018, Arseniy Ivanov and ForkDelta Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 from ..app import App
 import asyncio
 from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
@@ -26,24 +44,31 @@ logger.setLevel(logging.DEBUG)
 CHECK_TOKENS_PER_PONG = 2
 market_queue = Queue()
 
+
 def fill_queue():
     for token in App().tokens():
         market_queue.put(token["addr"].lower())
     logger.info("%i tokens added to market queue", len(App().tokens()))
+
 
 fill_queue()
 
 web3 = App().web3
 contract = web3.eth.contract(ED_CONTRACT_ADDR, abi=ED_CONTRACT_ABI)
 
+
 async def on_connect(io_client, event):
     logger.info("ED API client connected to %s", io_client.ws_url)
 
+
 async def on_error(io_client, event, error):
-    logger.critical("ED API client (connected to %s) error: %s", io_client.ws_url, error)
+    logger.critical("ED API client (connected to %s) error: %s",
+                    io_client.ws_url, error)
+
 
 async def on_disconnect(io_client, event):
     logger.info("ED API client disconnected from %s", io_client.ws_url)
+
 
 def validate_order(order, current_block=None):
     """
@@ -57,36 +82,48 @@ def validate_order(order, current_block=None):
         logger.warning("ED order rejected: %s: %s", error_msg, details_dict)
         return False
 
-    order_validated = v.document # Get data with validated and coerced values
+    order_validated = v.document  # Get data with validated and coerced values
 
     # Require one side of the order to be base currency
     if order_validated["tokenGet"] != ZERO_ADDR and order_validated["tokenGive"] != ZERO_ADDR:
-        error_msg = "Cannot post order with pair {}-{}: neither is a base currency".format(order_validated["tokenGet"], order_validated["tokenGive"])
+        error_msg = "Cannot post order with pair {}-{}: neither is a base currency".format(
+            order_validated["tokenGet"], order_validated["tokenGive"])
         logger.warning("ED order rejected: %s", error_msg)
         return
 
     # Require order to be non-expired
     if current_block and order_validated["expires"] <= current_block:
         error_msg = "Cannot record order because it has already expired"
-        details_dict = { "blockNumber": current_block, "expires": order_validated["expires"], "date": datetime.utcnow().isoformat() }
+        details_dict = {
+            "blockNumber": current_block,
+            "expires": order_validated["expires"],
+            "date": datetime.utcnow().isoformat()
+        }
         logger.warning("ED Order rejected: %s: %s", error_msg, details_dict)
         return False
 
     # Require a valid signature
     if not order_signature_valid(order_validated):
-        logger.warning("ED Order rejected: Invalid signature: raw_order = %s, order = %s", order, order_validated)
+        logger.warning(
+            "ED Order rejected: Invalid signature: raw_order = %s, order = %s",
+            order, order_validated)
         return False
     return True
 
+
 from functools import partial
+
+
 async def process_orders(orders):
-    current_block = web3.eth.blockNumber # TODO: Introduce a strict timeout here; on failure allow order (todo copied from websocket_server.py)
+    current_block = web3.eth.blockNumber  # TODO: Introduce a strict timeout here; on failure allow order (todo copied from websocket_server.py)
 
     not_deleted_filter = lambda order: "deleted" not in order or not order["deleted"]
-    invalid_orders_filter = partial(validate_order, current_block=current_block)
+    invalid_orders_filter = partial(
+        validate_order, current_block=current_block)
 
     logger.info("Processing %i orders", len(orders))
-    orders = list(filter(invalid_orders_filter, filter(not_deleted_filter, orders)))
+    orders = list(
+        filter(invalid_orders_filter, filter(not_deleted_filter, orders)))
     logger.debug("Filtered orders: %i", len(orders))
 
     for order in orders:
@@ -96,15 +133,19 @@ async def process_orders(orders):
             logger.critical("Error while processing order '%s'", order)
             raise e
 
+
 async def on_orders(io_client, event, payload=None):
     await process_orders([*payload["buys"], *payload["sells"]])
+
 
 async def on_market(io_client, event, payload):
     if "orders" not in payload:
         # The beautiful market API
         return
 
-    await process_orders([*payload["orders"]["buys"], *payload["orders"]["sells"]])
+    await process_orders(
+        [*payload["orders"]["buys"], *payload["orders"]["sells"]])
+
 
 async def on_pong(io_client, event):
     logger.info("Connection to %s alive: pong received", io_client.ws_url)
@@ -114,11 +155,12 @@ async def on_pong(io_client, event):
             token = market_queue.get_nowait()
         except QueueEmpty:
             fill_queue()
-            break # better luck next time!
+            break  # better luck next time!
         else:
             logger.info("Query token %s", token)
-            await io_client.emit("getMarket", { "token": token })
+            await io_client.emit("getMarket", {"token": token})
             await asyncio.sleep(4)
+
 
 INSERT_ORDER_STMT = """
     INSERT INTO orders
@@ -131,44 +173,42 @@ INSERT_ORDER_STMT = """
     ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
 """
 from ..tasks.update_order import update_order_by_signature
+
+
 async def record_order(order):
     order_maker = order["user"]
     signature = make_order_hash(order)
-    insert_args = (
-        OrderSource.OFFCHAIN.name,
-        Web3.toBytes(hexstr=signature),
-        Web3.toBytes(hexstr=order["tokenGive"]),
-        Decimal(order["amountGive"]),
-        Web3.toBytes(hexstr=order["tokenGet"]),
-        Decimal(order["amountGet"]),
-        int(order["expires"]),
-        int(order["nonce"]),
-        Web3.toBytes(hexstr=order["user"]),
-        OrderState.OPEN.name,
-        int(order["v"]),
-        Web3.toBytes(hexstr=order["r"]),
-        Web3.toBytes(hexstr=order["s"]),
-        datetime.utcnow()
-    )
+    insert_args = (OrderSource.OFFCHAIN.name, Web3.toBytes(hexstr=signature),
+                   Web3.toBytes(hexstr=order["tokenGive"]),
+                   Decimal(order["amountGive"]),
+                   Web3.toBytes(hexstr=order["tokenGet"]),
+                   Decimal(order["amountGet"]), int(order["expires"]),
+                   int(order["nonce"]), Web3.toBytes(hexstr=order["user"]),
+                   OrderState.OPEN.name, int(order["v"]),
+                   Web3.toBytes(hexstr=order["r"]),
+                   Web3.toBytes(hexstr=order["s"]), datetime.utcnow())
 
     async with App().db.acquire_connection() as connection:
-        insert_retval = await connection.execute(INSERT_ORDER_STMT, *insert_args)
+        insert_retval = await connection.execute(INSERT_ORDER_STMT,
+                                                 *insert_args)
         _, _, did_insert = parse_insert_status(insert_retval)
 
     if did_insert:
-        logger.info("recorded order signature=%s, user=%s, expires=%i", signature, order["user"], int(order["expires"]))
+        logger.info("recorded order signature=%s, user=%s, expires=%i",
+                    signature, order["user"], int(order["expires"]))
         update_order_by_signature(signature)
+
 
 async def main(my_id, num_observers):
     ws_url = ED_WS_SERVERS[my_id]
     io_client = SocketIOClient(ws_url)
     io_client.on("orders", on_orders)
     io_client.on("market", on_market)
-    io_client.on("pong", on_pong) # Schedules full refreshes
+    io_client.on("pong", on_pong)  # Schedules full refreshes
     io_client.on("connect", on_connect)
     io_client.on("disconnect", on_disconnect)
 
-    last_attempt = None # TODO: Exponential backoff
+    last_attempt = None  # TODO: Exponential backoff
     while True:
         try:
             await io_client.start()
@@ -180,9 +220,12 @@ async def main(my_id, num_observers):
     # - websockets.exceptions.InvalidStatusCode: LIKE Status code not 101: 521
     # - websockets.exceptions.ConnectionClosed: LIKE WebSocket connection is closed: code = 1006 (connection closed abnormally [internal]),
 
+
 NUM_OBSERVERS = 6
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    tasks = [ asyncio.ensure_future(main(i, NUM_OBSERVERS))
-                for i in range(0, NUM_OBSERVERS) ]
+    tasks = [
+        asyncio.ensure_future(main(i, NUM_OBSERVERS))
+        for i in range(0, NUM_OBSERVERS)
+    ]
     loop.run_until_complete(asyncio.gather(*tasks))

@@ -1,3 +1,21 @@
+# ForkDelta Backend
+# https://github.com/forkdelta/backend-replacement
+# Copyright (C) 2018, Arseniy Ivanov and ForkDelta Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 from ..app import App
 import asyncio
 from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, HTTP_PROVIDER_URL, WS_PROVIDER_URL
@@ -22,14 +40,20 @@ filter_set.on_event('Withdraw', record_withdraw)
 filter_set.on_event('Order', process_order)
 filter_set.on_event('Cancel', record_cancel)
 
+
 def make_eth_subscribe(topic_filter):
-    return { "method":"eth_subscribe",
-             "params":["logs", topic_filter],
-             "id":1,
-             "jsonrpc":"2.0" }
+    return {
+        "method": "eth_subscribe",
+        "params": ["logs", topic_filter],
+        "id": 1,
+        "jsonrpc": "2.0"
+    }
+
 
 AVERAGE_BLOCK_TIME = 13.5
 ACCEPTABLE_LATENCY = AVERAGE_BLOCK_TIME + 5
+
+
 def log_latency(event):
     block_ts = block_timestamp(App().web3, coerce_to_int(event["blockNumber"]))
     latency = time() - block_ts
@@ -41,6 +65,7 @@ def log_latency(event):
         logger.warn("Received event with %is latency", latency)
     else:
         logger.critical("Received event with %is latency", latency)
+
 
 async def main():
     logger = logging.getLogger("contract_observer")
@@ -81,15 +106,20 @@ async def main():
                     if len(subscription_results) > 0:
                         log_latency(subscription_results[0])
                     for subscription_result in subscription_results:
-                        await filter_set.deliver(subscription_result["topics"][0], subscription_result)
+                        await filter_set.deliver(
+                            subscription_result["topics"][0],
+                            subscription_result)
                 else:
                     #Geth websocket only returns one result at a time: {'address': '0x8d12a197cb00d4747a1fe03395095ce2a5cc6819', 'topics': [... }
                     subscription_result = subscription_results
                     if len(subscription_results) > 0:
                         log_latency(subscription_result)
-                        await filter_set.deliver(subscription_result["topics"][0], subscription_result)
+                        await filter_set.deliver(
+                            subscription_result["topics"][0],
+                            subscription_result)
 
         print("Contract observer disconnected")
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

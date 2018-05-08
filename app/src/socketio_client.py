@@ -17,8 +17,8 @@
 
 
 import asyncio
-import json
 import logging
+import rapidjson
 from time import sleep, time
 from websockets import connect
 from websockets.exceptions import ConnectionClosed
@@ -78,7 +78,7 @@ class SocketIOClient:
 
     async def emit(self, event, payload):
         logger = logging.getLogger('socketio')
-        json_payload = json.dumps([event, payload])
+        json_payload = rapidjson.dumps([event, payload])
         msg = ENGINEIO_MESSAGE + SOCKETIO_EVENT + json_payload
         logger.debug("Send '%s'", msg)
         await self.ws.send(msg)
@@ -144,8 +144,8 @@ class SocketIOClient:
     async def consume_socketio_event(self, json_payload):
         logger = logging.getLogger('socketio')
         try:
-            event_name, payload = json.loads(json_payload)
-        except json.JSONDecodeError as error:
+            event_name, payload = rapidjson.loads(json_payload)
+        except ValueError as error:
             if "error" in self.callbacks:
                 await self.callbacks["error"](self, "error", error)
         else:

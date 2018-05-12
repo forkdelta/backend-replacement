@@ -17,5 +17,5 @@ COPY . /usr/src/app
 RUN chown -R app:app /usr/src/app
 
 USER app
-
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8080

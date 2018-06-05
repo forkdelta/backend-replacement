@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 import asyncio
 from datetime import datetime
 from decimal import getcontext, InvalidOperation, DivisionByZero
@@ -46,7 +45,8 @@ fill_queue()
 async def get_trades_volume(token_hexstr):
     """
     Given a token address, return the volume of trades for that token in the past
-    24 hrs from the instant of calling this function.
+    24 hrs from the instant of calling this function. Volume excludes certain
+    trades.
 
     Returns a Record object with two columns: quote_volume and base_volume.
     """
@@ -54,13 +54,25 @@ async def get_trades_volume(token_hexstr):
     async with App().db.acquire_connection() as conn:
         return await conn.fetchrow(
             """
-            SELECT
-                COALESCE(SUM(CASE WHEN "token_get" = $1 THEN "amount_give" ELSE "amount_get" END), 0) AS quote_volume,
-                COALESCE(SUM(CASE WHEN "token_get" = $1 THEN "amount_get" ELSE "amount_give" END), 0) AS base_volume
-            FROM trades
-            WHERE (("token_get" = $1 AND "token_give" = $2)
-                    OR ("token_give" = $1 AND "token_get" = $2))
-                AND "date" >= NOW() - '1 day'::INTERVAL
+            SELECT COALESCE(SUM(t.base_volume), 0) AS base_volume, COALESCE(SUM(t.quote_volume), 0) AS quote_volume
+            FROM (
+              WITH tmpt AS (
+                SELECT "addr_get", "addr_give",
+                  COALESCE(SUM(CASE WHEN "token_get" = $1 THEN "amount_give" ELSE "amount_get" END), 0) AS quote_volume,
+                  COALESCE(SUM(CASE WHEN "token_get" = $1 THEN "amount_get" ELSE "amount_give" END), 0) AS base_volume
+                FROM trades
+                WHERE (("token_get" = $1 AND "token_give" = $2)
+                        OR ("token_give" = $1 AND "token_get" = $2))
+                        AND "date" >= NOW() - '1 day'::INTERVAL
+                GROUP BY "addr_get", "addr_give"
+              )
+              SELECT tmpt.addr_get, tmpt.addr_give,
+                SUM(tmpt.base_volume) - COALESCE(SUM(topp.base_volume), 0) AS base_volume,
+                SUM(tmpt.quote_volume) - COALESCE(SUM(topp.quote_volume), 0) AS quote_volume
+              FROM tmpt
+              LEFT JOIN tmpt AS topp ON (tmpt.addr_get = topp.addr_give AND tmpt.addr_give = topp.addr_get)
+              GROUP BY tmpt.addr_get, tmpt.addr_give
+            ) t
             """,
             Web3.toBytes(hexstr=ZERO_ADDR),
             Web3.toBytes(hexstr=token_hexstr))
@@ -79,6 +91,7 @@ async def get_last_trade(token_hexstr):
             WHERE (("token_get" = $1 AND "token_give" = $2)
                     OR ("token_give" = $1 AND "token_get" = $2))
                 AND ("amount_get" > 0 AND "amount_give" > 0)
+                AND ("addr_get" != "addr_give")
             ORDER BY "date" DESC
             LIMIT 1
             """,

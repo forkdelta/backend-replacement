@@ -5,7 +5,7 @@ WORKDIR /usr/src/app
 
 RUN apk --update --upgrade add --virtual deps \
       gcc python3-dev linux-headers musl-dev \
-      alpine-sdk openssl-dev gmp-dev libffi-dev \
+      alpine-sdk libressl-dev gmp-dev libffi-dev \
       postgresql-dev && \
     apk --update --upgrade add --no-cache libpq gmp libstdc++
 

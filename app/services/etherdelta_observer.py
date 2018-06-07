@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 from ..app import App
 import asyncio
 from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
@@ -41,7 +40,7 @@ from ..constants import ZERO_ADDR
 logger = logging.getLogger('etherdelta_observer')
 logger.setLevel(logging.DEBUG)
 
-CHECK_TOKENS_PER_PONG = 2
+CHECK_TOKENS_PER_PONG = 4
 market_queue = Queue()
 
 

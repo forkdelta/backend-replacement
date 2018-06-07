@@ -103,9 +103,6 @@ async def get_market_spread(token_hexstr, current_block):
     """
     Given a token address, returns the lowest ask and the highest bid.
     """
-
-    base_contract = ERC20Token(ZERO_ADDR)
-
     async with App().db.acquire_connection() as conn:
         return await conn.fetchrow(
             """
@@ -117,11 +114,7 @@ async def get_market_spread(token_hexstr, current_block):
                         AND "expires" > $3
                         AND ("amount_get" > 0 AND "amount_give" > 0)
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
-                        AND (CASE WHEN "available_volume" IS NULL THEN
-                                amount_get * (amount_give / amount_get::numeric) > $4
-                            ELSE
-                                available_volume * (amount_give / amount_get::numeric) > $4
-                            END)
+                        AND (COALESCE("available_volume", "amount_get") * amount_give * 10 ^ -18 / amount_get::numeric) > $4
                     ) AS bid,
                 (SELECT MIN(amount_get / amount_give::numeric)
                     FROM orders
@@ -130,17 +123,13 @@ async def get_market_spread(token_hexstr, current_block):
                         AND "expires" > $3
                         AND ("amount_get" > 0 AND "amount_give" > 0)
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
-                        AND (CASE WHEN "available_volume" IS NULL THEN
-                                amount_give * (amount_get / amount_give::numeric) > $4
-                            ELSE
-                                available_volume * (amount_get / amount_give::numeric) > $4
-                            END)
+                        AND (COALESCE("available_volume", "amount_get") * 10 ^ -18) > $4
                     ) AS ask
             """,
             ZERO_ADDR_BYTES,
             Web3.toBytes(hexstr=token_hexstr),
             current_block,
-            base_contract.normalize_value(FILTER_ORDERS_UNDER_ETH))
+            10.0 * FILTER_ORDERS_UNDER_ETH)
 
 
 async def save_ticker(ticker_info):
@@ -238,8 +227,12 @@ async def main():
         except QueueEmpty:
             fill_queue()
         else:
-            await update_ticker(token)
-            await asyncio.sleep(2.0)
+            try:
+                await update_ticker(token)
+            except:
+                logger.exception("Exception while processing token addr=%s",
+                                 token)
+            await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":

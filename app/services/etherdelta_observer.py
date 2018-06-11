@@ -17,7 +17,7 @@
 
 from ..app import App
 import asyncio
-from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS
+from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS, STOPPED_TOKENS
 from ..src.contract_event_utils import block_timestamp
 from datetime import datetime
 from decimal import Decimal
@@ -46,8 +46,10 @@ market_queue = Queue()
 
 def fill_queue():
     for token in App().tokens():
-        market_queue.put(token["addr"].lower())
-    logger.info("%i tokens added to market queue", len(App().tokens()))
+        token_addr = token["addr"].lower()
+        if token_addr not in STOPPED_TOKENS:
+            market_queue.put(token_addr)
+    logger.info("%i tokens added to market queue", market_queue.qsize())
 
 
 fill_queue()
@@ -106,6 +108,13 @@ def validate_order(order, current_block=None):
         logger.warning(
             "ED Order rejected: Invalid signature: raw_order = %s, order = %s",
             order, order_validated)
+        return False
+
+    # Observe stopped tokens
+    if order_validated["tokenGet"] in STOPPED_TOKENS or order_validated["tokenGive"] in STOPPED_TOKENS:
+        error_msg = "Cannot post order with pair {}-{}: order book is stopped".format(
+            message["tokenGet"], message["tokenGive"])
+        logger.warning("ED Order rejected: %s", error_msg)
         return False
     return True
 

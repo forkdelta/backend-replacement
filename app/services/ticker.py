@@ -23,6 +23,7 @@ from queue import Queue, Empty as QueueEmpty
 from web3 import Web3
 from ..app import App
 from ..src.erc20_token import ERC20Token
+from ..config import STOPPED_TOKENS
 from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES, FILTER_ORDERS_UNDER_ETH
 
 logger = logging.getLogger('services.ticker')
@@ -35,8 +36,10 @@ tokens_queue = Queue()
 
 def fill_queue():
     for token in App().tokens():
-        tokens_queue.put(token["addr"].lower())
-    logger.info("%i tokens added to ticker queue", len(App().tokens()))
+        token_addr = token["addr"].lower()
+        if not token_addr in STOPPED_TOKENS:
+            tokens_queue.put(token_addr)
+    logger.info("%i tokens added to ticker queue", tokens_queue.qsize())
 
 
 fill_queue()

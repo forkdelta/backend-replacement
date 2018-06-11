@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 from aiohttp import web
 import asyncio
 from datetime import datetime
@@ -27,7 +26,7 @@ from web3 import Web3
 import websockets
 
 from ..app import App
-from ..config import ALLOWED_ORIGIN_SUFFIXES, ED_CONTRACT_ADDR
+from ..config import ALLOWED_ORIGIN_SUFFIXES, ED_CONTRACT_ADDR, STOPPED_TOKENS
 from ..src.erc20_token import ERC20Token
 from ..src.order_enums import OrderState
 from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES
@@ -431,7 +430,8 @@ def format_tickers(tickers):
 
 @routes.get('/returnTicker')
 async def http_return_ticker(request):
-    return web.json_response(format_tickers(await get_tickers()), dumps=rapidjson.dumps)
+    return web.json_response(
+        format_tickers(await get_tickers()), dumps=rapidjson.dumps)
 
 
 @sio.on('getMarket')
@@ -455,37 +455,41 @@ async def get_market(sid, data):
             room=sid)
         return
 
-    token = data["token"] if "token" in data and Web3.isAddress(
+    token = data["token"].lower() if "token" in data and Web3.isAddress(
         data["token"]) else None
-    user = data["user"] if "user" in data and Web3.isAddress(
+    user = data["user"].lower() if "user" in data and Web3.isAddress(
         data["user"]) and data["user"].lower() != ED_CONTRACT_ADDR else None
 
     response = {"returnTicker": format_tickers(await get_tickers())}
 
     if token:
         trades = await get_trades(token)
-        orders_buys = await get_orders(
-            ZERO_ADDR,
-            token,
-            state=OrderState.OPEN.name,
-            with_available_volume=True,
-            sort="(amount_give / amount_get) DESC",
-            expires_after=get_current_block())
-        orders_sells = await get_orders(
-            token,
-            ZERO_ADDR,
-            state=OrderState.OPEN.name,
-            with_available_volume=True,
-            sort="(amount_get / amount_give) ASC",
-            expires_after=get_current_block())
+        response.update({"trades": safe_list_render(trades, format_trade)})
 
-        response.update({
-            "trades": safe_list_render(trades, format_trade),
-            "orders": {
-                "buys": safe_list_render(orders_buys, format_order),
-                "sells": safe_list_render(orders_sells, format_order)
-            }
-        })
+        if token not in STOPPED_TOKENS:
+            orders_buys = await get_orders(
+                ZERO_ADDR,
+                token,
+                state=OrderState.OPEN.name,
+                with_available_volume=True,
+                sort="(amount_give / amount_get) DESC",
+                expires_after=get_current_block())
+            orders_sells = await get_orders(
+                token,
+                ZERO_ADDR,
+                state=OrderState.OPEN.name,
+                with_available_volume=True,
+                sort="(amount_get / amount_give) ASC",
+                expires_after=get_current_block())
+
+            response.update({
+                "orders": {
+                    "buys": safe_list_render(orders_buys, format_order),
+                    "sells": safe_list_render(orders_sells, format_order)
+                }
+            })
+        else:
+            response.update({"orders": {"buys": [], "sells": []}})
 
         if user:
             my_trades = await get_trades(token, user)
@@ -544,15 +548,19 @@ STREAM_UPDATES_INTERVAL = 5.0
 
 
 async def stream_updates():
+    not_stopped_predicate = lambda order: not (Web3.toHex(order["token_give"]) in STOPPED_TOKENS or Web3.toHex(order["token_get"]) in STOPPED_TOKENS)
+
     while True:
         updated_after = datetime.utcnow()
         await sio.sleep(STREAM_UPDATES_INTERVAL)
 
         # Stream updated orders
-        orders_buys = await get_updated_orders(
-            updated_after, token_give_hexstr=ZERO_ADDR)
-        orders_sells = await get_updated_orders(
-            updated_after, token_get_hexstr=ZERO_ADDR)
+        orders_buys = list(
+            filter(not_stopped_predicate, await get_updated_orders(
+                updated_after, token_give_hexstr=ZERO_ADDR)))
+        orders_sells = list(
+            filter(not_stopped_predicate, await get_updated_orders(
+                updated_after, token_get_hexstr=ZERO_ADDR)))
         if orders_buys or orders_sells:  # Emit when there are updates only
             await sio.emit(
                 "orders", {
@@ -650,6 +658,14 @@ async def handle_order(sid, data):
         logger.warning("Order rejected: Invalid signature: order = %s",
                        message)
         error_msg = "Cannot post order: invalid signature"
+        await sio.emit("messageResult", [422, error_msg], room=sid)
+        return
+
+    # Observe stopped tokens
+    if message["tokenGet"] in STOPPED_TOKENS or message["tokenGive"] in STOPPED_TOKENS:
+        error_msg = "Cannot post order with pair {}-{}: order book is stopped".format(
+            message["tokenGet"], message["tokenGive"])
+        logger.warning("Order rejected: %s", error_msg)
         await sio.emit("messageResult", [422, error_msg], room=sid)
         return
 

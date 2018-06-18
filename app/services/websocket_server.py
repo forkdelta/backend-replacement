@@ -180,7 +180,7 @@ async def get_new_trades(created_after):
         return await conn.fetch("""
             SELECT *
             FROM trades
-            WHERE ("date" >= $1) AND ("token_give" = $2 OR "token_get" = $2)
+            WHERE ("date" > $1) AND ("token_give" = $2 OR "token_get" = $2)
             ORDER BY block_number DESC, date DESC
             """, created_after, ZERO_ADDR_BYTES)
 
@@ -219,7 +219,7 @@ async def get_new_transfers(created_after):
         return await conn.fetch("""
             SELECT *
             FROM transfers
-            WHERE ("date" >= $1)
+            WHERE ("date" > $1)
             ORDER BY block_number DESC, date DESC
             """, created_after)
 
@@ -547,7 +547,7 @@ async def update_tickers_cache():
 STREAM_UPDATES_INTERVAL = 5.0
 
 
-async def stream_updates():
+async def stream_order_updates():
     not_stopped_predicate = lambda order: not (Web3.toHex(order["token_give"]) in STOPPED_TOKENS or Web3.toHex(order["token_get"]) in STOPPED_TOKENS)
 
     while True:
@@ -568,16 +568,38 @@ async def stream_updates():
                     "sells": safe_list_render(orders_sells, format_order)
                 })
 
-        # Stream new trades
+
+async def stream_new_trades():
+    """
+    Streams new trades, based on date column. Advances "updates-since" when
+    encounters a later timestamp on a record.
+    """
+    updated_after = datetime.utcnow()
+    while True:
+        await sio.sleep(STREAM_UPDATES_INTERVAL)
         trades = await get_new_trades(updated_after)
         if trades:  # Emit when there are updates
-            await sio.emit("trades", [format_trade(trade) for trade in trades])
+            await sio.emit("trades", safe_list_render(trades, format_trade))
+            # Only advance updated_after after we received new trades, as
+            # they come backdated by block timestamp
+            updated_after = max(map(lambda t: t["date"], trades))
 
-        # Stream new transfers
+
+async def stream_new_transfers():
+    """
+    Streams new transfers, based on date column. Advances "updates-since" when
+    encounters a later timestamp on a record.
+    """
+    updated_after = datetime.utcnow()
+    while True:
+        await sio.sleep(STREAM_UPDATES_INTERVAL)
         transfers = await get_new_transfers(updated_after)
-        if transfers:
-            await sio.emit(
-                "funds", [format_transfer(transfer) for transfer in transfers])
+        if transfers:  # Emit when there are updates
+            await sio.emit("funds", safe_list_render(transfers,
+                                                     format_transfer))
+            # Only advance updated_after after we received new trades, as
+            # they come backdated by block timestamp
+            updated_after = max(map(lambda t: t["date"], transfers))
 
 
 from ..src.order_hash import make_order_hash
@@ -708,7 +730,9 @@ async def update_current_block():
 
 app.router.add_routes(routes)
 if __name__ == "__main__":
-    sio.start_background_task(stream_updates)
+    sio.start_background_task(stream_order_updates)
+    sio.start_background_task(stream_new_trades)
+    sio.start_background_task(stream_new_transfers)
     sio.start_background_task(update_current_block)
     sio.start_background_task(update_tickers_cache)
     web.run_app(app)

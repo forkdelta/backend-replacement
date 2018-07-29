@@ -113,7 +113,7 @@ def validate_order(order, current_block=None):
     # Observe stopped tokens
     if order_validated["tokenGet"] in STOPPED_TOKENS or order_validated["tokenGive"] in STOPPED_TOKENS:
         error_msg = "Cannot post order with pair {}-{}: order book is stopped".format(
-            message["tokenGet"], message["tokenGive"])
+            order_validated["tokenGet"], order_validated["tokenGive"])
         logger.warning("ED Order rejected: %s", error_msg)
         return False
     return True

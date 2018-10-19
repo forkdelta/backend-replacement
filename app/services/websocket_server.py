@@ -29,7 +29,7 @@ from ..app import App
 from ..config import ALLOWED_ORIGIN_SUFFIXES, ED_CONTRACT_ADDR, STOPPED_TOKENS
 from ..src.erc20_token import ERC20Token
 from ..src.order_enums import OrderState
-from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES
+from ..constants import ZERO_ADDR, ZERO_ADDR_BYTES, MAX_ORDERS_PER_USER
 from ..lib import rapidjson
 
 sio_logger = logging.getLogger('socketio.AsyncServer')
@@ -65,7 +65,6 @@ def is_origin_allowed(origin):
     is_origin_allowed("https://forkdelta.bs/") => False
     is_origin_allowed("https://forkscamster.github.io/") => False
     """
-
     parsed = urlparse(origin)
     if parsed.scheme in ('http', 'https', 'ws', 'wss'):
         return isinstance(parsed.hostname, str) and any([
@@ -166,7 +165,8 @@ async def get_trades(token_hexstr, user_hexstr=None):
         placeholder_args.append(Web3.toBytes(hexstr=user_hexstr))
 
     async with App().db.acquire_connection() as conn:
-        return await conn.fetch("""
+        return await conn.fetch(
+            """
             SELECT *
             FROM trades
             WHERE {}
@@ -177,7 +177,8 @@ async def get_trades(token_hexstr, user_hexstr=None):
 
 async def get_new_trades(created_after):
     async with App().db.acquire_connection() as conn:
-        return await conn.fetch("""
+        return await conn.fetch(
+            """
             SELECT *
             FROM trades
             WHERE ("date" > $1) AND ("token_give" = $2 OR "token_get" = $2)
@@ -216,7 +217,8 @@ async def get_transfers(token_hexstr, user_hexstr):
 
 async def get_new_transfers(created_after):
     async with App().db.acquire_connection() as conn:
-        return await conn.fetch("""
+        return await conn.fetch(
+            """
             SELECT *
             FROM transfers
             WHERE ("date" > $1)
@@ -257,7 +259,8 @@ async def get_orders(token_give_hexstr,
         order_by.insert(0, sort)
 
     async with App().db.acquire_connection() as conn:
-        return await conn.fetch("""
+        return await conn.fetch(
+            """
             SELECT *
             FROM orders
             WHERE {}
@@ -290,7 +293,8 @@ async def get_updated_orders(updated_after,
         placeholder_args.append(Web3.toBytes(hexstr=token_get_hexstr))
 
     async with App().db.acquire_connection() as conn:
-        return await conn.fetch("""
+        return await conn.fetch(
+            """
             SELECT *
             FROM orders
             WHERE {}
@@ -359,8 +363,8 @@ def format_order(record):
             available_volume_base)
 
         # available token volume = available base volume * price
-        available_volume = (available_volume_base * record["amount_give"]
-                            ) / record["amount_get"]
+        available_volume = (available_volume_base *
+                            record["amount_give"]) / record["amount_get"]
         eth_available_volume = coin_contract.denormalize_value(
             available_volume)
 
@@ -556,11 +560,13 @@ async def stream_order_updates():
 
         # Stream updated orders
         orders_buys = list(
-            filter(not_stopped_predicate, await get_updated_orders(
-                updated_after, token_give_hexstr=ZERO_ADDR)))
+            filter(
+                not_stopped_predicate, await get_updated_orders(
+                    updated_after, token_give_hexstr=ZERO_ADDR)))
         orders_sells = list(
-            filter(not_stopped_predicate, await get_updated_orders(
-                updated_after, token_get_hexstr=ZERO_ADDR)))
+            filter(
+                not_stopped_predicate, await get_updated_orders(
+                    updated_after, token_get_hexstr=ZERO_ADDR)))
         if orders_buys or orders_sells:  # Emit when there are updates only
             await sio.emit(
                 "orders", {
@@ -607,6 +613,38 @@ from ..src.order_message_validator import OrderMessageValidator
 from ..src.order_signature import order_signature_valid
 from ..src.record_order import record_order
 from ..tasks.update_order import update_order_by_signature
+
+
+async def count_orders(token_give_hexstr,
+                       token_get_hexstr,
+                       user_hexstr=None,
+                       expires_after=None,
+                       state=None):
+    where = '("token_give" = $1 AND "token_get" = $2)'
+    placeholder_args = [
+        Web3.toBytes(hexstr=token_give_hexstr),
+        Web3.toBytes(hexstr=token_get_hexstr)
+    ]
+
+    if user_hexstr:
+        where += ' AND ("user" = ${})'.format(len(placeholder_args) + 1)
+        placeholder_args.append(Web3.toBytes(hexstr=user_hexstr))
+
+    if expires_after:
+        where += ' AND ("expires" > ${})'.format(len(placeholder_args) + 1)
+        placeholder_args.append(expires_after)
+
+    if state:
+        where += ' AND ("state" = ${})'.format(len(placeholder_args) + 1)
+        placeholder_args.append(state)
+
+    async with App().db.acquire_connection() as conn:
+        return await conn.fetchval(
+            """
+            SELECT COUNT(*) as order_count
+            FROM orders
+            WHERE {}
+            """.format(where), *placeholder_args)
 
 
 @sio.on('message')
@@ -687,6 +725,18 @@ async def handle_order(sid, data):
     if message["tokenGet"] in STOPPED_TOKENS or message["tokenGive"] in STOPPED_TOKENS:
         error_msg = "Cannot post order with pair {}-{}: order book is stopped".format(
             message["tokenGet"], message["tokenGive"])
+        logger.warning("Order rejected: %s", error_msg)
+        await sio.emit("messageResult", [422, error_msg], room=sid)
+        return
+
+    # Limit number of orders submitted by a single user
+    user_order_count = await count_orders(message["tokenGive"],
+                                          message["tokenGet"], message["user"],
+                                          get_current_block(), "OPEN")
+
+    if user_order_count >= MAX_ORDERS_PER_USER:
+        error_msg = "Too many open orders: maximum of {} open orders permitted at one time".format(
+            MAX_ORDERS_PER_USER)
         logger.warning("Order rejected: %s", error_msg)
         await sio.emit("messageResult", [422, error_msg], room=sid)
         return

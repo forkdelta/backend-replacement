@@ -41,7 +41,7 @@ POSTGRES_DB = environ.get("POSTGRES_DB")
 POSTGRES_USER = environ.get("POSTGRES_USER")
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")
 
-FRONTEND_CONFIG_FILE = "https://forkdelta.github.io/config/main.json"
+FRONTEND_CONFIG_FILE = "https://forkdelta.app/config/main.json"
 STOPPED_TOKENS = (
     "0x86fa049857e0209aa7d9e616f7eb3b3b78ecfdb0",  # EOS: https://block.one/news/community-reminder-eos-token-registration-and-freeze/
     "0x7e9e431a0b8c4d532c745b1043c7fa29a48d4fba",  # eosDAC: https://twitter.com/eosdac/status/1002657571197673475?lang=en

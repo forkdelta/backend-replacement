@@ -38,7 +38,7 @@ gevent
 ##
 # Data tools
 # A data object validation tool:
-cerberus==1.1
+cerberus==1.2
 
 ##
 # Crypto tools

@@ -44,4 +44,4 @@ cerberus==1.1
 # Crypto tools
 # ecrecover support:
 coincurve~=7.0.0
-rlp>=0.4.7,<1.0.0
+rlp>=0.4.7,<2.0.0

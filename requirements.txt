@@ -22,7 +22,7 @@ python-rapidjson==0.5.2
 # DB driver for application
 asyncpg==0.14.0
 # alembic for DB versioning
-alembic==0.9.6
+alembic==1.0.5
 # For use with alembic
 psycopg2~=2.7.3.2
 

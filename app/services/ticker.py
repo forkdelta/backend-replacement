@@ -33,16 +33,27 @@ getcontext().prec = 10
 
 tokens_queue = Queue()
 
+FETCH_RECENTLY_TRADED_TOKENS = """
+SELECT token_addr
+FROM (
+SELECT token_get AS token_addr, SUM(amount_give) AS volume FROM trades WHERE "date" >= NOW() - '1 year'::INTERVAL AND token_get <> $1 GROUP BY token_get
+UNION SELECT token_give AS token_addr, SUM(amount_get) AS volume FROM trades WHERE "date" >= NOW() - '1 year'::INTERVAL AND token_give <> $1 GROUP BY token_give
+) t GROUP BY 1 ORDER BY SUM(volume) DESC LIMIT 250;
+"""
 
-def fill_queue():
-    for token in App().tokens():
-        token_addr = token["addr"].lower()
+
+async def fill_queue():
+    async with App().db.acquire_connection() as conn:
+        active_tokens = list(
+            Web3.toHex(token_addr_row["token_addr"])
+            for token_addr_row in (await conn.fetch(
+                FETCH_RECENTLY_TRADED_TOKENS, Web3.toBytes(hexstr=ZERO_ADDR))))
+
+    for token_addr in active_tokens:
         if not token_addr in STOPPED_TOKENS:
             tokens_queue.put(token_addr)
-    logger.info("%i tokens added to ticker queue", tokens_queue.qsize())
 
-
-fill_queue()
+    return tokens_queue.qsize()
 
 
 async def get_trades_volume(token_hexstr):
@@ -76,8 +87,7 @@ async def get_trades_volume(token_hexstr):
               LEFT JOIN tmpt AS topp ON (tmpt.addr_get = topp.addr_give AND tmpt.addr_give = topp.addr_get)
               GROUP BY tmpt.addr_get, tmpt.addr_give
             ) t
-            """,
-            Web3.toBytes(hexstr=ZERO_ADDR),
+            """, Web3.toBytes(hexstr=ZERO_ADDR),
             Web3.toBytes(hexstr=token_hexstr))
 
 
@@ -97,8 +107,7 @@ async def get_last_trade(token_hexstr):
                 AND ("addr_get" != "addr_give")
             ORDER BY "date" DESC
             LIMIT 1
-            """,
-            Web3.toBytes(hexstr=ZERO_ADDR),
+            """, Web3.toBytes(hexstr=ZERO_ADDR),
             Web3.toBytes(hexstr=token_hexstr))
 
 
@@ -128,11 +137,8 @@ async def get_market_spread(token_hexstr, current_block):
                         AND ("available_volume" IS NULL OR "available_volume" > 0)
                         AND (COALESCE("available_volume", "amount_get") * 10 ^ -18) > $4
                     ) AS ask
-            """,
-            ZERO_ADDR_BYTES,
-            Web3.toBytes(hexstr=token_hexstr),
-            current_block,
-            10.0 * FILTER_ORDERS_UNDER_ETH)
+            """, ZERO_ADDR_BYTES, Web3.toBytes(hexstr=token_hexstr),
+            current_block, 10.0 * FILTER_ORDERS_UNDER_ETH)
 
 
 async def save_ticker(ticker_info):
@@ -154,13 +160,9 @@ async def save_ticker(ticker_info):
                     "ask" = $6,
                     "updated" = $7
                 WHERE tickers.token_address = $1
-            """,
-            Web3.toBytes(hexstr=ticker_info["token_address"]),
-            ticker_info["quote_volume"],
-            ticker_info["base_volume"],
-            ticker_info["last"],
-            ticker_info["bid"],
-            ticker_info["ask"],
+            """, Web3.toBytes(hexstr=ticker_info["token_address"]),
+            ticker_info["quote_volume"], ticker_info["base_volume"],
+            ticker_info["last"], ticker_info["bid"], ticker_info["ask"],
             datetime.utcnow())
 
 
@@ -224,11 +226,19 @@ async def update_ticker(token_addr):
 
 
 async def main():
+    from time import sleep as sync_sleep
+    queue_size = await fill_queue()
+    logger.info("%i tokens added to ticker queue", queue_size)
+
     while True:
         try:
             token = tokens_queue.get_nowait()
         except QueueEmpty:
-            fill_queue()
+            queue_size = await fill_queue()
+            if queue_size == 0:
+                logger.warning(
+                    "No tokens added to ticker queue: pausing for 5 minutes")
+                sync_sleep(300)  # Prevent busy loops
         else:
             try:
                 await update_ticker(token)

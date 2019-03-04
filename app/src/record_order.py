@@ -19,6 +19,7 @@ For use with websocket server.
 """
 
 from datetime import datetime
+from decimal import localcontext
 from web3 import Web3
 
 from ..app import App
@@ -56,9 +57,13 @@ async def record_order(order, block_number=0):
     #   => -(amount_give / amount_get) ASC
     # if tokenGet is ZERO_ADDR, sort by (amount_get / amount_give) ASC
     if order["tokenGive"] == ZERO_ADDR:
-        sorting_price = -order["amountGive"] / order["amountGet"]
+        with localcontext() as decimal_ctx:
+            decimal_ctx.prec = 10
+            sorting_price = -order["amountGive"] / order["amountGet"]
     else:
-        sorting_price = order["amountGet"] / order["amountGive"]
+        with localcontext() as decimal_ctx:
+            decimal_ctx.prec = 10
+            sorting_price = order["amountGet"] / order["amountGive"]
 
     insert_args = (
         source.name,

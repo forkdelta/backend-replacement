@@ -20,7 +20,7 @@ import asyncio
 from app.config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI, ED_WS_SERVERS, STOPPED_TOKENS
 from ..src.contract_event_utils import block_timestamp
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 import json
 import logging
 from ..src.order_enums import OrderSource, OrderState
@@ -194,9 +194,13 @@ async def record_order(order):
     #   => -(amount_give / amount_get) ASC
     # if tokenGet is ZERO_ADDR, sort by (amount_get / amount_give) ASC
     if order["tokenGive"] == ZERO_ADDR:
-        sorting_price = -amount_give / amount_get
+        with localcontext() as decimal_ctx:
+            decimal_ctx.prec = 10
+            sorting_price = -amount_give / amount_get
     else:
-        sorting_price = amount_get / amount_give
+        with localcontext() as decimal_ctx:
+            decimal_ctx.prec = 10
+            sorting_price = amount_get / amount_give
 
     insert_args = (
         OrderSource.OFFCHAIN.name,

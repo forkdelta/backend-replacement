@@ -476,14 +476,14 @@ async def get_market(sid, data):
                 token,
                 state=OrderState.OPEN.name,
                 with_available_volume=True,
-                sort="(amount_give / amount_get) DESC",
+                sort="sorting_price",
                 expires_after=get_current_block())
             orders_sells = await get_orders(
                 token,
                 ZERO_ADDR,
                 state=OrderState.OPEN.name,
                 with_available_volume=True,
-                sort="(amount_get / amount_give) ASC",
+                sort="sorting_price",
                 expires_after=get_current_block())
 
             response.update({

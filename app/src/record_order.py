@@ -22,7 +22,7 @@ from datetime import datetime
 from web3 import Web3
 
 from ..app import App
-from ..app.constants import ZERO_ADDR
+from ..constants import ZERO_ADDR
 from app.src.contract_event_utils import block_timestamp
 from ..src.order_enums import OrderSource, OrderState
 from ..src.order_hash import make_order_hash

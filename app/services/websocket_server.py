@@ -503,14 +503,14 @@ async def get_market(sid, data):
                 token,
                 user_hexstr=user,
                 state=OrderState.OPEN.name,
-                sort="(amount_give / amount_get) DESC",
+                sort="sorting_price",
                 expires_after=get_current_block())
             my_orders_sells = await get_orders(
                 token,
                 ZERO_ADDR,
                 user_hexstr=user,
                 state=OrderState.OPEN.name,
-                sort="(amount_get / amount_give) ASC",
+                sort="sorting_price",
                 expires_after=get_current_block())
             response.update({
                 "myTrades":

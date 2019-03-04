@@ -175,9 +175,9 @@ INSERT_ORDER_STMT = """
     (
         "source", "signature",
         "token_give", "amount_give", "token_get", "amount_get", "available_volume",
-        "expires", "nonce", "user", "state", "v", "r", "s", "date"
+        "expires", "nonce", "user", "state", "v", "r", "s", "date", "sorting_price"
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
 """
 from ..tasks.update_order import update_order_by_signature
@@ -186,15 +186,35 @@ from ..tasks.update_order import update_order_by_signature
 async def record_order(order):
     order_maker = order["user"]
     signature = make_order_hash(order)
-    insert_args = (OrderSource.OFFCHAIN.name, Web3.toBytes(hexstr=signature),
-                   Web3.toBytes(hexstr=order["tokenGive"]),
-                   Decimal(order["amountGive"]),
-                   Web3.toBytes(hexstr=order["tokenGet"]),
-                   Decimal(order["amountGet"]), int(order["expires"]),
-                   int(order["nonce"]), Web3.toBytes(hexstr=order["user"]),
-                   OrderState.OPEN.name, int(order["v"]),
-                   Web3.toBytes(hexstr=order["r"]),
-                   Web3.toBytes(hexstr=order["s"]), datetime.utcnow())
+
+    amount_give = Decimal(order["amountGive"])
+    amount_get = Decimal(order["amountGet"])
+
+    # if tokenGive is ZERO_ADDR, sort by (amount_give / amount_get) DESC
+    #   => -(amount_give / amount_get) ASC
+    # if tokenGet is ZERO_ADDR, sort by (amount_get / amount_give) ASC
+    if order["tokenGive"] == ZERO_ADDR:
+        sorting_price = -amount_give / amount_get
+    else:
+        sorting_price = amount_get / amount_give
+
+    insert_args = (
+        OrderSource.OFFCHAIN.name,
+        Web3.toBytes(hexstr=signature),
+        Web3.toBytes(hexstr=order["tokenGive"]),
+        amount_give,
+        Web3.toBytes(hexstr=order["tokenGet"]),
+        amount_get,
+        int(order["expires"]),
+        int(order["nonce"]),
+        Web3.toBytes(hexstr=order["user"]),
+        OrderState.OPEN.name,
+        int(order["v"]),
+        Web3.toBytes(hexstr=order["r"]),
+        Web3.toBytes(hexstr=order["s"]),
+        datetime.utcnow(),
+        sorting_price,
+    )
 
     async with App().db.acquire_connection() as connection:
         insert_retval = await connection.execute(INSERT_ORDER_STMT,

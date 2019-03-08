@@ -14,16 +14,16 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-
 """
 For use with websocket server.
 """
 
 from datetime import datetime
+from decimal import localcontext
 from web3 import Web3
 
 from ..app import App
+from ..constants import ZERO_ADDR
 from app.src.contract_event_utils import block_timestamp
 from ..src.order_enums import OrderSource, OrderState
 from ..src.order_hash import make_order_hash
@@ -35,9 +35,9 @@ INSERT_ORDER_STMT = """
     (
         "source", "signature",
         "token_give", "amount_give", "token_get", "amount_get", "available_volume",
-        "expires", "nonce", "user", "state", "v", "r", "s", "date"
+        "expires", "nonce", "user", "state", "v", "r", "s", "date", "sorting_price"
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     ON CONFLICT ON CONSTRAINT index_orders_on_signature DO NOTHING
 """
 
@@ -53,12 +53,35 @@ async def record_order(order, block_number=0):
         date = datetime.fromtimestamp(
             block_timestamp(App().web3, block_number), tz=None)
 
-    insert_args = (source.name, Web3.toBytes(hexstr=signature),
-                   Web3.toBytes(hexstr=order["tokenGive"]),
-                   order["amountGive"], Web3.toBytes(hexstr=order["tokenGet"]),
-                   order["amountGet"], order["expires"], order["nonce"],
-                   Web3.toBytes(hexstr=order["user"]), OrderState.OPEN.name,
-                   order.get("v"), order.get("r"), order.get("s"), date)
+    # if tokenGive is ZERO_ADDR, sort by (amount_give / amount_get) DESC
+    #   => -(amount_give / amount_get) ASC
+    # if tokenGet is ZERO_ADDR, sort by (amount_get / amount_give) ASC
+    if order["tokenGive"] == ZERO_ADDR:
+        with localcontext() as decimal_ctx:
+            decimal_ctx.prec = 10
+            sorting_price = -order["amountGive"] / order["amountGet"]
+    else:
+        with localcontext() as decimal_ctx:
+            decimal_ctx.prec = 10
+            sorting_price = order["amountGet"] / order["amountGive"]
+
+    insert_args = (
+        source.name,
+        Web3.toBytes(hexstr=signature),
+        Web3.toBytes(hexstr=order["tokenGive"]),
+        order["amountGive"],
+        Web3.toBytes(hexstr=order["tokenGet"]),
+        order["amountGet"],
+        order["expires"],
+        order["nonce"],
+        Web3.toBytes(hexstr=order["user"]),
+        OrderState.OPEN.name,
+        order.get("v"),
+        order.get("r"),
+        order.get("s"),
+        date,
+        sorting_price,
+    )
 
     async with App().db.acquire_connection() as connection:
         insert_retval = await connection.execute(INSERT_ORDER_STMT,

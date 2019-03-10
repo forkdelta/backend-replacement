@@ -15,7 +15,7 @@ websockets~=7.0.0
 python-socketio~=1.8.4
 aiohttp==2.3.7
 # rapidjson is a faster json serialization library (cf. https://artem.krylysov.com/blog/2015/09/29/benchmark-python-json-libraries/)
-python-rapidjson==0.5.2
+python-rapidjson==0.7.0
 
 ##
 # DB

@@ -24,7 +24,7 @@ asyncpg==0.18.2
 # alembic for DB versioning
 alembic==0.9.6
 # For use with alembic
-psycopg2~=2.7.3.2
+psycopg2~=2.8.2
 
 ##
 # Queue

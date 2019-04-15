@@ -146,5 +146,5 @@ def order_as_args(order):
     return (Web3.toHex(order["token_get"]), Web3.toInt(order["amount_get"]),
             Web3.toHex(order["token_give"]), Web3.toInt(order["amount_give"]),
             Web3.toInt(order["expires"]), Web3.toInt(order["nonce"]),
-            Web3.toHex(order["user"]), order.get("v", 0),
-            order.get("r", EMPTY_BYTES32), order.get("s", EMPTY_BYTES32))
+            Web3.toHex(order["user"]), order.get("v", 0) or 0,
+            order.get("r", EMPTY_BYTES32) or EMPTY_BYTES32, order.get("s", EMPTY_BYTES32) or EMPTY_BYTES32)

@@ -36,8 +36,8 @@ tokens_queue = Queue()
 FETCH_RECENTLY_TRADED_TOKENS = """
 SELECT token_addr
 FROM (
-SELECT token_get AS token_addr, SUM(amount_give) AS volume FROM trades WHERE "date" >= NOW() - '1 year'::INTERVAL AND token_get <> $1 GROUP BY token_get
-UNION SELECT token_give AS token_addr, SUM(amount_get) AS volume FROM trades WHERE "date" >= NOW() - '1 year'::INTERVAL AND token_give <> $1 GROUP BY token_give
+SELECT token_get AS token_addr, SUM(amount_give) AS volume FROM trades WHERE "date" >= NOW() - '1 week'::INTERVAL AND token_get <> $1 GROUP BY token_get
+UNION SELECT token_give AS token_addr, SUM(amount_get) AS volume FROM trades WHERE "date" >= NOW() - '1 week'::INTERVAL AND token_give <> $1 GROUP BY token_give
 ) t GROUP BY 1 ORDER BY SUM(volume) DESC LIMIT 250;
 """
 
@@ -234,6 +234,10 @@ async def main():
         try:
             token = tokens_queue.get_nowait()
         except QueueEmpty:
+            async with App().db.acquire_connection() as conn:
+                await conn.execute("""
+                    DELETE FROM tickers WHERE "updated" < NOW() - '1 month'::INTERVAL;
+                """)
             queue_size = await fill_queue()
             if queue_size == 0:
                 logger.warning(

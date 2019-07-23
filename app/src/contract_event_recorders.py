@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 from datetime import datetime
 import logging
 from pprint import pprint
@@ -26,7 +25,7 @@ from app.src.contract_event_utils import block_timestamp
 from app.src.order_enums import OrderSource, OrderState
 from app.src.order_hash import make_order_hash
 from app.src.utils import coerce_to_int, parse_insert_status
-from ..tasks.update_order import update_orders_by_maker_and_token, update_order_by_signature
+from ..tasks.update_order import update_orders_by_maker_and_token, update_orders_by_maker_and_tokens, update_order_by_signature
 from ..constants import ZERO_ADDR
 
 from ..src.record_order import record_order
@@ -45,14 +44,25 @@ async def process_trade(contract, event_name, event):
 
         ##
         # Dispatch a background job to update potentially affected orders
+        #
+        # Potentially affected orders include orders by the maker and the taker,
+        # on both tokenGive and tokenGet sides of the trade.
+
         block_number = coerce_to_int(event["blockNumber"])
-        # Order maker side is recorded in `get`
-        order_maker = event["args"]["get"]
-        if event["args"]["tokenGive"] != ZERO_ADDR:
-            coin_addr = event["args"]["tokenGive"]
-        else:
-            coin_addr = event["args"]["tokenGet"]
-        update_orders_by_maker_and_token(order_maker, coin_addr, block_number)
+        trade_parties = set([
+            # Order maker side is recorded in `get`
+            event["args"]["get"],
+            # Taker side is recorded in `give`
+            event["args"]["give"],
+        ])
+        traded_tokens = set([
+            event["args"]["tokenGet"],
+            event["args"]["tokenGive"],
+        ])
+
+        for trade_party in trade_parties:
+            update_orders_by_maker_and_tokens(trade_party, traded_tokens,
+                                              block_number)
     else:
         logger.debug("duplicate trade txid=%s", event["transactionHash"])
 

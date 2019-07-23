@@ -15,8 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-from app.lib.threaded_wrap_async import threaded_wrap_async
 import asyncio
 from datetime import datetime
 import logging
@@ -24,6 +22,7 @@ from web3 import Web3, HTTPProvider
 
 from ..app import App
 from ..config import ED_CONTRACT_ADDR, ED_CONTRACT_ABI
+from ..lib.threaded_wrap_async import threaded_wrap_async
 from ..src.contract_event_utils import block_timestamp
 
 huey = App().huey
@@ -143,8 +142,15 @@ EMPTY_BYTES32 = b'0' * 32
 
 def order_as_args(order):
     order = dict(order)
-    return (Web3.toHex(order["token_get"]), Web3.toInt(order["amount_get"]),
-            Web3.toHex(order["token_give"]), Web3.toInt(order["amount_give"]),
-            Web3.toInt(order["expires"]), Web3.toInt(order["nonce"]),
-            Web3.toHex(order["user"]), order.get("v", 0),
-            order.get("r", EMPTY_BYTES32), order.get("s", EMPTY_BYTES32))
+    return (
+        Web3.toHex(order["token_get"]),
+        Web3.toInt(order["amount_get"]),
+        Web3.toHex(order["token_give"]),
+        Web3.toInt(order["amount_give"]),
+        Web3.toInt(order["expires"]),
+        Web3.toInt(order["nonce"]),
+        Web3.toHex(order["user"]),
+        order.get("v") or 0,
+        order.get("r") or EMPTY_BYTES32,
+        order.get("s") or EMPTY_BYTES32,
+    )

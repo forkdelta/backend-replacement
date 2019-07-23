@@ -75,13 +75,18 @@ async def record_trade(contract, event_name, event):
     date = datetime.fromtimestamp(
         block_timestamp(App().web3, event["blockNumber"]), tz=None)
 
-    insert_args = (block_number, Web3.toBytes(hexstr=event["transactionHash"]),
-                   log_index, Web3.toBytes(hexstr=event["args"]["tokenGive"]),
-                   event["args"]["amountGive"],
-                   Web3.toBytes(hexstr=event["args"]["tokenGet"]),
-                   event["args"]["amountGet"],
-                   Web3.toBytes(hexstr=event["args"]["give"]),
-                   Web3.toBytes(hexstr=event["args"]["get"]), date)
+    insert_args = (
+        block_number,
+        Web3.toBytes(hexstr=event["transactionHash"]),
+        log_index,
+        Web3.toBytes(hexstr=event["args"]["tokenGive"]),
+        event["args"]["amountGive"],
+        Web3.toBytes(hexstr=event["args"]["tokenGet"]),
+        event["args"]["amountGet"],
+        Web3.toBytes(hexstr=event["args"]["give"]),
+        Web3.toBytes(hexstr=event["args"]["get"]),
+        date,
+    )
 
     async with App().db.acquire_connection() as connection:
         insert_retval = await connection.execute(INSERT_TRADE_STMT,
@@ -130,11 +135,17 @@ async def record_transfer(transfer_direction, event):
     date = datetime.fromtimestamp(
         block_timestamp(App().web3, block_number), tz=None)
 
-    insert_args = (block_number, Web3.toBytes(hexstr=event["transactionHash"]),
-                   log_index, transfer_direction,
-                   Web3.toBytes(hexstr=event["args"]["token"]),
-                   Web3.toBytes(hexstr=event["args"]["user"]),
-                   event["args"]["amount"], event["args"]["balance"], date)
+    insert_args = (
+        block_number,
+        Web3.toBytes(hexstr=event["transactionHash"]),
+        log_index,
+        transfer_direction,
+        Web3.toBytes(hexstr=event["args"]["token"]),
+        Web3.toBytes(hexstr=event["args"]["user"]),
+        event["args"]["amount"],
+        event["args"]["balance"],
+        date,
+    )
 
     async with App().db.acquire_connection() as connection:
         insert_retval = await connection.execute(INSERT_TRANSFER_STMT,
@@ -196,10 +207,10 @@ async def record_cancel(contract, event_name, event):
         Web3.toBytes(hexstr=order["user"]),
         OrderState.CANCELED.name,
         date,
-        order[
-            "amountGet"],  # Contract updates orderFills to amountGet when trade is cancelled
+        # Contract updates orderFills to amountGet when trade is cancelled
+        order["amountGet"],
         date,
-        0  # Cancelled = 0 volume available
+        0,  # Cancelled = 0 volume available
     )
 
     async with App().db.acquire_connection() as connection:

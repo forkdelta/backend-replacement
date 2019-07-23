@@ -236,7 +236,7 @@ async def main():
         except QueueEmpty:
             async with App().db.acquire_connection() as conn:
                 await conn.execute("""
-                    DELETE FROM tickers WHERE "updated" < NOW() - '1 hour'::INTERVAL;
+                    DELETE FROM tickers WHERE "updated" < NOW() - '1 month'::INTERVAL;
                 """)
             queue_size = await fill_queue()
             if queue_size == 0:

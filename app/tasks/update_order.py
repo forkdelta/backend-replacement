@@ -43,10 +43,27 @@ async def update_order_by_signature(order_signature):
     Arguments:
     order_signature: Order signature as a 0x-prefixed hex string
     """
-    logger.debug("Update order by signature={}".format(order_signature))
-    order = await fetch_order_by_signature(order_signature)
-    await update_order(order)
+    await internal_update_orders_by_signature([order_signature])
     return None
+
+
+@huey.task()
+@threaded_wrap_async
+async def update_orders_by_signature(order_signatures):
+    """
+    Updates the fill of a single order given its signature.
+
+    Arguments:
+    order_signature: A list of 0x-prefixed hex string order signatures
+    """
+    await internal_update_orders_by_signature(order_signatures)
+    return None
+
+
+async def internal_update_orders_by_signature(signatures):
+    logger.debug("Update orders by signatures=%s", signatures)
+    orders = await fetch_order_by_signatures(signatures)
+    await bulk_update_orders(orders)
 
 
 @huey.task()
@@ -106,14 +123,15 @@ async def internal_update_by_maker_and_tokens(maker, tokens, block_number):
 SELECT_ORDER_STMT = """
     SELECT *
     FROM orders
-    WHERE signature = $1
+    WHERE signature = any($1::bytea[])
 """
 
 
-async def fetch_order_by_signature(signature):
+async def fetch_order_by_signatures(signatures):
     async with App().db.acquire_connection() as conn:
-        return await conn.fetchrow(SELECT_ORDER_STMT,
-                                   Web3.toBytes(hexstr=signature))
+        return await conn.fetch(
+            SELECT_ORDER_STMT,
+            [Web3.toBytes(hexstr=signature) for signature in signatures])
 
 
 FETCH_ORDERS_BY_MAKER_AND_TOKENS_STMT = """
@@ -145,11 +163,6 @@ UPDATE_ORDER_FILL_STMT = """
         "updated"  = $3
     WHERE "signature" = $4 AND ("updated" IS NULL OR "updated" <= $3)
 """
-
-
-async def update_order(order):
-    await bulk_update_orders([order])
-
 
 MAX_ORDER_SERVICE_CHUNK = 250
 

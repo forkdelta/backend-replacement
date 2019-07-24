@@ -33,8 +33,11 @@ huey = App().huey
 logger = logging.getLogger("tasks.update_order")
 logger.setLevel(logging.DEBUG)
 
+TASK_RETRIES = 3
+TASK_RETRY_DELAY = 30
 
-@huey.task()
+
+@huey.task(TASK_RETRIES, TASK_RETRY_DELAY)
 @threaded_wrap_async
 async def update_order_by_signature(order_signature):
     """
@@ -47,7 +50,7 @@ async def update_order_by_signature(order_signature):
     return None
 
 
-@huey.task()
+@huey.task(TASK_RETRIES, TASK_RETRY_DELAY)
 @threaded_wrap_async
 async def update_orders_by_signature(order_signatures):
     """
@@ -66,7 +69,7 @@ async def internal_update_orders_by_signature(signatures):
     await bulk_update_orders(orders)
 
 
-@huey.task()
+@huey.task(TASK_RETRIES, TASK_RETRY_DELAY)
 @threaded_wrap_async
 async def update_orders_by_maker_and_token(maker_addr, token_addr,
                                            block_number):
@@ -85,7 +88,7 @@ async def update_orders_by_maker_and_token(maker_addr, token_addr,
     return None
 
 
-@huey.task()
+@huey.task(TASK_RETRIES, TASK_RETRY_DELAY)
 @threaded_wrap_async
 async def update_orders_by_maker_and_tokens(maker_addr, token_addrs,
                                             block_number):

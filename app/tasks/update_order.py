@@ -181,8 +181,8 @@ async def bulk_update_orders(orders):
 
         updated_orders = state["orders"]
         update_many_args = [(
-            Web3.toInt(new_order_state["amountFilled"]),
-            Web3.toInt(new_order_state["availableVolume"]),
+            Web3.toInt(new_order_state.get("amountFilled")),
+            Web3.toInt(new_order_state.get("availableVolume")),
             updated_at,
             order["signature"],
         ) for (order, new_order_state) in ((

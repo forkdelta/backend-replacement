@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 from datetime import datetime
 import logging
 from pprint import pprint
@@ -26,7 +25,7 @@ from app.src.contract_event_utils import block_timestamp
 from app.src.order_enums import OrderSource, OrderState
 from app.src.order_hash import make_order_hash
 from app.src.utils import coerce_to_int, parse_insert_status
-from ..tasks.update_order import update_orders_by_maker_and_token, update_order_by_signature
+from ..tasks.update_order import update_orders_by_maker_and_token, update_orders_by_maker_and_tokens, update_order_by_signature
 from ..constants import ZERO_ADDR
 
 from ..src.record_order import record_order
@@ -45,14 +44,25 @@ async def process_trade(contract, event_name, event):
 
         ##
         # Dispatch a background job to update potentially affected orders
+        #
+        # Potentially affected orders include orders by the maker and the taker,
+        # on both tokenGive and tokenGet sides of the trade.
+
         block_number = coerce_to_int(event["blockNumber"])
-        # Order maker side is recorded in `get`
-        order_maker = event["args"]["get"]
-        if event["args"]["tokenGive"] != ZERO_ADDR:
-            coin_addr = event["args"]["tokenGive"]
-        else:
-            coin_addr = event["args"]["tokenGet"]
-        update_orders_by_maker_and_token(order_maker, coin_addr, block_number)
+        trade_parties = set([
+            # Order maker side is recorded in `get`
+            event["args"]["get"],
+            # Taker side is recorded in `give`
+            event["args"]["give"],
+        ])
+        traded_tokens = set([
+            event["args"]["tokenGet"],
+            event["args"]["tokenGive"],
+        ])
+
+        for trade_party in trade_parties:
+            update_orders_by_maker_and_tokens(trade_party, traded_tokens,
+                                              block_number)
     else:
         logger.debug("duplicate trade txid=%s", event["transactionHash"])
 
@@ -75,13 +85,18 @@ async def record_trade(contract, event_name, event):
     date = datetime.fromtimestamp(
         block_timestamp(App().web3, event["blockNumber"]), tz=None)
 
-    insert_args = (block_number, Web3.toBytes(hexstr=event["transactionHash"]),
-                   log_index, Web3.toBytes(hexstr=event["args"]["tokenGive"]),
-                   event["args"]["amountGive"],
-                   Web3.toBytes(hexstr=event["args"]["tokenGet"]),
-                   event["args"]["amountGet"],
-                   Web3.toBytes(hexstr=event["args"]["give"]),
-                   Web3.toBytes(hexstr=event["args"]["get"]), date)
+    insert_args = (
+        block_number,
+        Web3.toBytes(hexstr=event["transactionHash"]),
+        log_index,
+        Web3.toBytes(hexstr=event["args"]["tokenGive"]),
+        event["args"]["amountGive"],
+        Web3.toBytes(hexstr=event["args"]["tokenGet"]),
+        event["args"]["amountGet"],
+        Web3.toBytes(hexstr=event["args"]["give"]),
+        Web3.toBytes(hexstr=event["args"]["get"]),
+        date,
+    )
 
     async with App().db.acquire_connection() as connection:
         insert_retval = await connection.execute(INSERT_TRADE_STMT,
@@ -130,11 +145,17 @@ async def record_transfer(transfer_direction, event):
     date = datetime.fromtimestamp(
         block_timestamp(App().web3, block_number), tz=None)
 
-    insert_args = (block_number, Web3.toBytes(hexstr=event["transactionHash"]),
-                   log_index, transfer_direction,
-                   Web3.toBytes(hexstr=event["args"]["token"]),
-                   Web3.toBytes(hexstr=event["args"]["user"]),
-                   event["args"]["amount"], event["args"]["balance"], date)
+    insert_args = (
+        block_number,
+        Web3.toBytes(hexstr=event["transactionHash"]),
+        log_index,
+        transfer_direction,
+        Web3.toBytes(hexstr=event["args"]["token"]),
+        Web3.toBytes(hexstr=event["args"]["user"]),
+        event["args"]["amount"],
+        event["args"]["balance"],
+        date,
+    )
 
     async with App().db.acquire_connection() as connection:
         insert_retval = await connection.execute(INSERT_TRANSFER_STMT,
@@ -196,10 +217,10 @@ async def record_cancel(contract, event_name, event):
         Web3.toBytes(hexstr=order["user"]),
         OrderState.CANCELED.name,
         date,
-        order[
-            "amountGet"],  # Contract updates orderFills to amountGet when trade is cancelled
+        # Contract updates orderFills to amountGet when trade is cancelled
+        order["amountGet"],
         date,
-        0  # Cancelled = 0 volume available
+        0,  # Cancelled = 0 volume available
     )
 
     async with App().db.acquire_connection() as connection:

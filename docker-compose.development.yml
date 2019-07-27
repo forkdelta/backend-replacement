@@ -4,7 +4,7 @@
 # Use
 #   COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml
 # in your .env file to apply these overrides.
-version: '2'
+version: "2"
 services:
   contract_observer:
     volumes:
@@ -27,3 +27,7 @@ services:
       - "8080:8080"
     volumes:
       - .:/usr/src/app
+
+  order_refresh:
+    command: >
+      npx micro-dev index.js

@@ -1,4 +1,4 @@
-version: '2'
+version: "2"
 services:
   contract_observer:
     image: forkdelta/backend
@@ -49,6 +49,7 @@ services:
     links:
       - postgres
       - redis
+      - order_refresh
     command: >
       huey_consumer.py app.services.huey_consumer.huey -w ${HUEY_CONCURRENCY} -k greenlet
 
@@ -85,6 +86,11 @@ services:
       - redis
     command: >
       python3 -m app.services.websocket_server
+
+  order_refresh:
+    image: forkdelta/order-refresh-service
+    environment:
+      HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
 
   postgres:
     image: postgres:10-alpine

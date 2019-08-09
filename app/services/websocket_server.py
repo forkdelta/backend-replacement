@@ -209,10 +209,8 @@ async def get_transfers(token_hexstr, user_hexstr):
             WHERE "user" = $1 AND ("token" = $2 OR "token" = $3)
             ORDER BY block_number DESC, date DESC
             LIMIT 100
-            """,
-            Web3.toBytes(hexstr=user_hexstr),
-            Web3.toBytes(hexstr=token_hexstr),
-            Web3.toBytes(hexstr=ZERO_ADDR))
+            """, Web3.toBytes(hexstr=user_hexstr),
+            Web3.toBytes(hexstr=token_hexstr), Web3.toBytes(hexstr=ZERO_ADDR))
 
 
 async def get_new_transfers(created_after):
@@ -257,7 +255,7 @@ async def get_orders(token_give_hexstr,
         placeholder_args.append(state)
 
     if with_available_volume:
-        where += ' AND ("available_volume" IS NULL OR "available_volume" > 0)'
+        where += ' AND "available_volume" > 0'
 
     order_by = ['expires ASC']
     if sort is not None:
@@ -360,7 +358,7 @@ def format_order(record):
             record["amount_give"]) / coin_contract.denormalize_value(
                 record["amount_get"])
 
-        available_volume = record.get("available_volume", record["amount_get"])
+        available_volume = record["available_volume"] or 0
         eth_available_volume = coin_contract.denormalize_value(
             available_volume)
 
@@ -377,8 +375,7 @@ def format_order(record):
             record["amount_get"]) / coin_contract.denormalize_value(
                 record["amount_give"])
 
-        available_volume_base = record.get("available_volume",
-                                           record["amount_get"])
+        available_volume_base = record["available_volume"] or 0
         eth_available_volume_base = base_contract.denormalize_value(
             available_volume_base)
 

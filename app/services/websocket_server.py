@@ -34,7 +34,8 @@ from ..lib import rapidjson
 
 sio_logger = logging.getLogger('socketio.AsyncServer')
 sio_logger.setLevel(logging.DEBUG)
-sio = socketio.AsyncServer(logger=sio_logger, json=rapidjson)
+sio = socketio.AsyncServer(
+    logger=sio_logger, json=rapidjson, cors_allowed_origins='*')
 app = web.Application()
 routes = web.RouteTableDef()
 sio.attach(app)

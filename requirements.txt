@@ -30,7 +30,7 @@ psycopg2~=2.7.3.2
 # Queue
 huey[backends]~=1.7.0
 # For use with huey's redis backend
-redis~=2.10.6
+redis~=3.3.10
 # Use greenlets for huey: our tasks are mostly I/O bound
 gevent
 

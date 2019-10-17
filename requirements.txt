@@ -28,7 +28,7 @@ psycopg2~=2.7.3.2
 
 ##
 # Queue
-huey[backends]~=1.7.0
+huey[backends]~=2.1.3
 # For use with huey's redis backend
 redis~=2.10.6
 # Use greenlets for huey: our tasks are mostly I/O bound

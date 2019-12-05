@@ -8,7 +8,7 @@ eth-abi==0.5.0
 ##
 # Sockets
 # Lock yarl until aiohttp is fixed, cf. https://github.com/aio-libs/aiohttp/issues/2662
-yarl==0.18.0
+yarl==1.4.2
 # Plain websockets for connections to the Ethereum node and orderbook observer
 websockets~=7.0.0
 # Socket.IO server to provide a WS API, backed by aiohttp for HTTP long-polling support

@@ -6,6 +6,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - blockclock
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -24,6 +25,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - blockclock
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -41,6 +43,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - blockclock
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -58,6 +61,7 @@ services:
     build: .
     depends_on:
       - postgres
+      - blockclock
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -74,6 +78,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - blockclock
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -91,6 +96,11 @@ services:
     image: forkdelta/order-refresh-service
     environment:
       HTTP_PROVIDER_URL: ${HTTP_PROVIDER_URL}
+
+  blockclock:
+    image: forkdelta/blockclock
+    environment:
+      WS_PROVIDER_URL: ${WS_PROVIDER_URL}
 
   postgres:
     image: postgres:10-alpine

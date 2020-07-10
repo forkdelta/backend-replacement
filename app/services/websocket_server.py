@@ -15,12 +15,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from aiohttp import web
-import asyncio
 from datetime import datetime
 from decimal import getcontext
 import logging
 from time import time
+
+from aiohttp import web
+import asyncio
+import requests
 import socketio
 from web3 import Web3
 import websockets
@@ -110,7 +112,7 @@ current_block = None
 def get_current_block(ignore_cache=False):
     global current_block
     if not current_block or ignore_cache:
-        current_block = App().web3.eth.blockNumber
+        current_block = int(requests.get("http://blockclock:3000/").text)
     return current_block
 
 

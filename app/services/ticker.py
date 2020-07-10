@@ -20,7 +20,11 @@ from datetime import datetime
 from decimal import getcontext, InvalidOperation, DivisionByZero
 import logging
 from queue import Queue, Empty as QueueEmpty
+
+import requests
 from web3 import Web3
+
+
 from ..app import App
 from ..src.erc20_token import ERC20Token
 from ..config import STOPPED_TOKENS
@@ -167,7 +171,7 @@ async def save_ticker(ticker_info):
 
 
 async def update_ticker(token_addr):
-    current_block = App().web3.eth.blockNumber
+    current_block = int(requests.get("http://blockclock:3000/").text)
     coin_contract = ERC20Token(token_addr)
     base_contract = ERC20Token(ZERO_ADDR)
 

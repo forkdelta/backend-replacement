@@ -20,7 +20,7 @@ python-rapidjson==0.5.2
 ##
 # DB
 # DB driver for application
-asyncpg==0.18.2
+asyncpg==0.21.0
 # alembic for DB versioning
 alembic==0.9.6
 # For use with alembic
